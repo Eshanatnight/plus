@@ -1,0 +1,15 @@
+# CMAKE Stuff
+
+## CMake Build Directories
+/cmake-build-debug
+/cmake-build-debug-visual-studio
+/cmake-build-release
+/out
+/build
+/bin
+
+
+## IDE And Text Editor Stuff
+/.visual
+/.vscode
+/.idea
