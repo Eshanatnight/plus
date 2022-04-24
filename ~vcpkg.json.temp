@@ -1,0 +1,11 @@
+{
+    "name": "plus-util",
+    "version-string": "0.0.1",
+    "dependencies": [
+        "cli11",
+        "libgit2",
+        "boost-filesystem",
+        "fmt"
+    ]
+    "license": "MIT"
+}
