@@ -26,10 +26,10 @@
 }
 
 
-[[maybe_unused]] void plusutil::initGitFiles()
+[[maybe_unused]] void plusutil::initGitFiles(const std::string& path)
 {
     fmt::print(fg(fmt::color::lawn_green), "Initializing a gitignore file\n");
-    auto gitignore = fmt::output_file(".gitignore", fmt::file::WRONLY | fmt::file::CREATE);
+    auto gitignore = fmt::output_file(path + ".gitignore", fmt::file::WRONLY | fmt::file::CREATE);
 
     gitignore.print("# CMAKE Stuff\n\n");
     gitignore.print("## CMake Build Directories\n");
@@ -59,6 +59,11 @@
     gitignore.flush();
 
     gitignore.close();
+
+    auto gitattributes = fmt::output_file(path + ".gitattributes", fmt::file::WRONLY | fmt::file::CREATE);
+    gitattributes.print("* text=auto\n");
+    gitattributes.flush();
+    gitattributes.close();
 }
 
 
