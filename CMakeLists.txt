@@ -8,16 +8,15 @@ set(CMAKE_BUILD_TYPE Debug)
 
 #set(CMAKE_PREFIX_PATH "D:\\Program Files\\vcpkg\\packages\\fmt_x64-windows\\share\\fmt")
 
+set(SRC_FILES src/main.cpp src/githandler.cpp)
+set(HEADER_FILES src/include/githandler.h)
 
 add_executable(util
-    src/main.cpp
-    src/githandler.cpp
-    src/include/githandler.h
-    src/lg2prelude.cpp
-    src/include/lg2prelude.h
+    ${SRC_FILES}
+    ${HEADER_FILES}
 )
 
-target_include_directories(util PUBLIC ".\\include")
+target_include_directories(util PUBLIC ".\\src\\include")
 
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(util PRIVATE fmt::fmt)
