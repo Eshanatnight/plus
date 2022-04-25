@@ -1,4 +1,4 @@
-#include "include/githandler.h"
+#include "githandler.h"
 #include <string>
 
 #define EXIT_SUCCESS 0
