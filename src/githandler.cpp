@@ -17,6 +17,8 @@
 
     git_repository* repo;
 
+    git_libgit2_init();
+
     plusutil::check_lg2(
             git_repository_init(&repo, repositoryPath.c_str(), 0),
             "Unable to init repository",
@@ -29,7 +31,7 @@
 [[maybe_unused]] void plusutil::initGitFiles(const std::string& path)
 {
     fmt::print(fg(fmt::color::lawn_green), "Initializing a gitignore file\n");
-    auto gitignore = fmt::output_file(path + ".gitignore", fmt::file::WRONLY | fmt::file::CREATE);
+    auto gitignore = fmt::output_file(path + "/.gitignore", fmt::file::WRONLY | fmt::file::CREATE);
 
     gitignore.print("# CMAKE Stuff\n\n");
     gitignore.print("## CMake Build Directories\n");
@@ -60,7 +62,7 @@
 
     gitignore.close();
 
-    auto gitattributes = fmt::output_file(path + ".gitattributes", fmt::file::WRONLY | fmt::file::CREATE);
+    auto gitattributes = fmt::output_file(path + "/.gitattributes", fmt::file::WRONLY | fmt::file::CREATE);
     gitattributes.print("* text=auto\n");
     gitattributes.flush();
     gitattributes.close();
@@ -87,7 +89,7 @@ void plusutil::check_lg2(int error, const char *message, const char *extra)
 
     else
     {
-        fmt::print(stderr, "%s [%d]%s%s\n",message, error, lg2spacer, lg2msg);
+        fmt::print(stderr, "{}[{}]{}{}\n",message, error, lg2spacer, lg2msg);
     }
 
     exit(1);
