@@ -6,6 +6,6 @@
         "libgit2",
         "boost-filesystem",
         "fmt"
-    ]
+    ],
     "license": "MIT"
 }
