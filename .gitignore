@@ -11,6 +11,6 @@
 
 
 ## IDE And Text Editor Stuff
-/.visual
 /.vscode
+/.vs
 /.idea
