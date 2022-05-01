@@ -9,7 +9,7 @@ void plusutil::createCmakeLists(const std::string &path, const std::string& proj
 {
     fmt::print(fg(fmt::color::lawn_green), "Creating CMakeLists.txt\n");
 
-    auto cmakelists = fmt::output_file(path + "/CMakeLists.txt");
+    auto cmakelists = fmt::output_file(path + "/CMakeLists.txt", fmt::file::WRONLY | fmt::file::CREATE);
     cmakelists.print("cmake_minimum_required(VERSION 3.10)\n");
     cmakelists.print("project({})\n", project_name);
     cmakelists.print("\n");
@@ -31,9 +31,8 @@ void plusutil::create_file(const std::string &path)
 
     fmt::print(fg(fmt::color::lawn_green), "Creating file...\n");
 
-    auto main_cpp = fmt::output_file("./src/main.cpp");
-    main_cpp.print("#include <iostream>\n");
-    main_cpp.print("\n");
+    auto main_cpp = fmt::output_file(path + "/main.cpp", fmt::file::WRONLY | fmt::file::CREATE);
+    main_cpp.print("#include <iostream>\n\n");
     main_cpp.print("int main()\n");
     main_cpp.print("{}\n", brace_open);
     main_cpp.print("    std::cout << \"Hello World!\" << std::endl;\n");
@@ -43,13 +42,13 @@ void plusutil::create_file(const std::string &path)
     main_cpp.close();
 }
 
-auto plusutil::get_project_name(std::vector<std::string>& args)
+std::optional<std::string> plusutil::get_project_name(const std::vector<std::string>& args)
 {
     auto it = std::find(args.begin(), args.end(), "new");
     if (it != args.end() && it + 1 != args.end())
     {
-        return ++it;
+        return *(++it);
     }
 
-    return args.end();
+    return {};
 }

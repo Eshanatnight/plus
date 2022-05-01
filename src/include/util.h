@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <optional>
 #include <vector>
 
 namespace plusutil
@@ -13,8 +14,7 @@ namespace plusutil
     // create file
     void create_file(const std::string& path);
 
-    // returns an iterator to the name of the project if the project name is not found
-    // returns an iterator to the end of the vector
-    auto get_project_name(std::vector<std::string>& args);
-
+    // returns an optional project name
+    std::optional<std::string> get_project_name(const std::vector<std::string>& args);
 }
+
