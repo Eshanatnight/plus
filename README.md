@@ -35,7 +35,7 @@ A Small Utility App For C/CPP and CMake users.
 
 ----
 
-## Useage and Keyword Lookup!
+## Useage and Keyword Lookup
 
 |Keyword|Command|
 |---|---|
