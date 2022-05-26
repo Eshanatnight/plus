@@ -1,4 +1,5 @@
 #include "util.h"
+#include <ranges>
 #include <filesystem>
 #include <fmt/ostream.h>
 #include <fmt/os.h>
@@ -44,10 +45,11 @@ void plusutil::create_file(const std::string &path)
 
 std::optional<std::string> plusutil::get_project_name(const std::vector<std::string>& args)
 {
-    auto it = std::find(args.begin(), args.end(), "new");
-    if (it != args.end() && it + 1 != args.end())
+    auto _it = std::ranges::find(args, "new");
+    // auto it = std::find(args.begin(), args.end(), "new");
+    if (_it != args.end() && _it + 1 != args.end())
     {
-        return *(++it);
+        return *(++_it);
     }
 
     return {};
