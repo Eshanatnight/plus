@@ -33,6 +33,16 @@ A Small Utility App For C/CPP and CMake users.
     cmake --build . --config Release
 ```
 
+### Using Other Compilers to Build
+
+As of the current MSVC `26.05.22`,
+Currently for full support for `std::ranges` we need to use `/std:c++latest` which is directly not accessible from cmake.
+
+For MSVC we have to set the standard to 23. (This is reflected in the CMakeLists.txt file)
+Other compilers might need to modify the CMakeLists.txt file to set the standard to the latest or even the latest c++20.
+
+More Information [here](https://stackoverflow.com/questions/64889383/how-to-enable-stdclatest-in-cmake)
+
 ----
 
 ## Useage and Keyword Lookup
