@@ -1,0 +1,3 @@
+[submodule "cppgit2"]
+	path = cppgit2
+	url = git@github.com:Eshanatnight/cppgit2.git
