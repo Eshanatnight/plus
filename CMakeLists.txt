@@ -16,7 +16,7 @@ set(SRC_FILES
     src/cli.cpp
 )
 
-    set(HEADER_FILES
+set(HEADER_FILES
     src/include/githandler.h
     src/include/util.h
     src/include/cli.h
@@ -28,6 +28,12 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ".\\src\\include")
+
+target_include_directories(${PROJECT_NAME} PUBLIC ".\\cppgit2\\build-release\\include")
+
+find_library(CPPGIT2_LIBRARY cppgit2 HINTS ".\\cppgit2\\build-release\\lib\\Release")
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CPPGIT2_LIBRARY})
+
 
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
