@@ -1,0 +1,20 @@
+Detecting compiler hash for triplet x64-windows...
+All requested packages are currently installed.
+Restored 0 packages from C:\Users\eshan\AppData\Local\vcpkg\archives in 286.1 us. Use --debug to see more details.
+
+Total elapsed time: 5.1 s
+
+The package fmt provides CMake targets:
+
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt)
+
+    # Or use the header-only version
+    find_package(fmt CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE fmt::fmt-header-only)
+
+The package libgit2 provides CMake targets:
+
+    find_package(unofficial-git2 CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE unofficial::git2::git2)
+

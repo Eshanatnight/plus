@@ -1,0 +1,97 @@
+Package: vcpkg-cmake-config
+Version: 2022-02-06
+Port-Version: 1
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 1194b6b31fa80881f1dd2acf636a69437420c197a9d598deb611fc19609c4419
+Type: Port
+Status: install ok installed
+
+Package: vcpkg-cmake
+Version: 2022-06-07
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 9a9a370f1403b2282b6143168a21d11555e0938922869cbe27397b280b365056
+Type: Port
+Status: install ok installed
+
+Package: fmt
+Version: 8.1.1
+Port-Version: 1
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: c6677bc0e8f53e4456d8b5362fb579b6044811eb923df27fb15568bb099c4969
+Description: Formatting library for C++. It can be used as a safe alternative to printf or as a fast alternative to IOStreams.
+Type: Port
+Status: install ok installed
+
+Package: pcre
+Version: 8.45
+Port-Version: 3
+Depends: vcpkg-cmake, vcpkg-cmake-config
+Architecture: x64-windows
+Multi-Arch: same
+Abi: b6e84629d565cc8759ae3acfe05b462cf700feda32d1f0b6aa992bc4ba356e0d
+Description: Perl Compatible Regular Expressions
+Type: Port
+Status: install ok installed
+
+Package: zlib
+Version: 1.2.12
+Port-Version: 1
+Depends: vcpkg-cmake
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 8f7d12705f747ce6242c7aad63719f6ae98cd29840d2c9ed060e2867dc589ffc
+Description: A compression library
+Type: Port
+Status: install ok installed
+
+Package: http-parser
+Version: 2.9.4
+Port-Version: 1
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 4b70e05c1b588c41a2a23ff4b5b430221f688751ef8bcd15d3165d8985553d09
+Description: HTTP Parser.
+Type: Port
+Status: install ok installed
+
+Package: libgit2
+Version: 1.4.2
+Depends: http-parser, vcpkg-cmake, vcpkg-cmake-config, zlib
+Architecture: x64-windows
+Multi-Arch: same
+Abi: 1eda9c8531f57975c2d0a34cd745f1165b148bd6b511e28730fc9c36175c4b54
+Description: Git linkable library
+Type: Port
+Default-Features: pcre, ssl
+Status: install ok installed
+
+Package: libgit2
+Feature: pcre
+Depends: pcre
+Architecture: x64-windows
+Multi-Arch: same
+Description: Build against external libpcre
+Type: Port
+Status: install ok installed
+
+Package: libgit2
+Feature: ssl
+Depends: libgit2
+Architecture: x64-windows
+Multi-Arch: same
+Description: Default SSL backend
+Type: Port
+Status: install ok installed
+
+Package: libgit2
+Feature: winhttp
+Architecture: x64-windows
+Multi-Arch: same
+Description: SSL support (WinHTTP)
+Type: Port
+Status: install ok installed
+
