@@ -6,7 +6,6 @@
 /cmake-build-debug-vs
 /cmake-build-release
 /out
-/build
 /bin
 
 
@@ -14,3 +13,4 @@
 /.vscode
 /.vs
 /.idea
+
