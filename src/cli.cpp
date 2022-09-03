@@ -9,22 +9,17 @@
 #include <ranges>
 
 
-void printHelp(bool exit)
+void printHelp()
 {
     fmt::print(fg(fmt::color::lawn_green), "Usage:\n");
     fmt::print(fg(fmt::color::green), "plus ");
     fmt::print("[options] \n");
 
-    if(exit)
-    {
-        return;
-    }
-
-    fmt::print(fmt::emphasis::bold | fg(fmt::color::yellow_green) | bg(fmt::color::white_smoke), "Options:\n");
-    fmt::print("\n-v, --version     \t\tPrints the version of the program\n");
-    fmt::print("-h, --help        \t\tPrints this help\n");
+    fmt::print(fmt::emphasis::bold, "\nOptions:\n");
     fmt::print("init              \t\tInitializes a new project\n");
     fmt::print("new <folder_name> \t\tCreates a new project\n");
+    fmt::print("-v, --version     \t\tPrints the version of the program\n");
+    fmt::print("-h, --help        \t\tPrints this help\n");
 }
 
 
@@ -79,7 +74,7 @@ void run(const std::vector<std::string>& args)
     if(std::ranges::find(args.begin(), args.end(), "-h") != args.end()||
         std::ranges::find(args.begin(), args.end(), "--help") != args.end())
     {
-        printHelp(false);
+        printHelp();
         return;
     }
 

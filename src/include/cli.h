@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // prints the help message for the app
-void printHelp(bool exit = true);
+void printHelp();
 
 // initializes the project
 // called when the `init` command is called
