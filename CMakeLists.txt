@@ -9,25 +9,74 @@ project(plus)
 # https://stackoverflow.com/questions/64889383/how-to-enable-stdclatest-in-cmake
 set(CMAKE_CXX_STANDARD 23)
 
-set(SRC_FILES
-    src/main.cpp
-    src/githandler.cpp
-    src/util.cpp
+
+set(SRC_FILE
     src/cli.cpp
+    src/githandler.cpp
+    src/main.cpp
+    src/util.cpp
+    src/cppgit2/annotated_commit.cpp
+    src/cppgit2/blame.cpp
+    src/cppgit2/blob.cpp
+    src/cppgit2/buffer.cpp
+    src/cppgit2/commit.cpp
+    src/cppgit2/config.cpp
+    src/cppgit2/diff.cpp
+    src/cppgit2/id_to_str.cpp
+    src/cppgit2/index.cpp
+    src/cppgit2/initializer.cpp
+    src/cppgit2/object.cpp
+    src/cppgit2/odb_object.cpp
+    src/cppgit2/odb.cpp
+    src/cppgit2/reference.cpp
+    src/cppgit2/remote.cpp
+    src/cppgit2/repo.cpp
+    src/cppgit2/revspec.cpp
+    src/cppgit2/revwalker.cpp
+    src/cppgit2/signature.cpp
+    src/cppgit2/status.cpp
+    src/cppgit2/submodule.cpp
+    src/cppgit2/tag.cpp
+    src/cppgit2/tree.cpp
 )
 
-    set(HEADER_FILES
-    src/include/githandler.h
-    src/include/util.h
-    src/include/cli.h
+set(HEADER_FILE
+    "include/cli.h"
+    "include/githandler.h"
+    "include/util.h"
+    "include/cppgit2/annotated_commit.h"
+    "include/cppgit2/blame.h"
+    "include/cppgit2/blob.h"
+    "include/cppgit2/buffer.h"
+    "include/cppgit2/commit.h"
+    "include/cppgit2/config.h"
+    "include/cppgit2/diff.h"
+    "include/cppgit2/id_to_str.h"
+    "include/cppgit2/index.h"
+    "include/cppgit2/initializer.h"
+    "include/cppgit2/object.h"
+    "include/cppgit2/odb_object.h"
+    "include/cppgit2/odb.h"
+    "include/cppgit2/reference.h"
+    "include/cppgit2/remote.h"
+    "include/cppgit2/repo.h"
+    "include/cppgit2/revspec.h"
+    "include/cppgit2/revwalker.h"
+    "include/cppgit2/signature.h"
+    "include/cppgit2/status.h"
+    "include/cppgit2/submodule.h"
+    "include/cppgit2/tag.h"
+    "include/cppgit2/tree.h"
 )
+
 
 add_executable(${PROJECT_NAME}
-    ${SRC_FILES}
-    ${HEADER_FILES}
+    ${SRC_FILE}
+    ${HEADER_FILE}
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC ".\\src\\include")
+target_include_directories(${PROJECT_NAME} PUBLIC ".\\include")
+target_include_directories(${PROJECT_NAME} PUBLIC ".\\include\\cppgit2")
 
 find_package(fmt CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
