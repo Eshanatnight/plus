@@ -1,6 +1,5 @@
-#include "include/cli.h"
-#include "include/util.h"
-#include "include/githandler.h"
+#include "cli.h"
+#include "util.h"
 
 #include <fmt/os.h>
 #include <fmt/ostream.h>
@@ -9,12 +8,11 @@
 #include <ranges>
 
 
-void printHelp()
+void Cli::printHelp()
 {
     fmt::print(fg(fmt::color::lawn_green), "Usage:\n");
     fmt::print(fg(fmt::color::green), "plus ");
     fmt::print("[options] \n");
-
     fmt::print(fmt::emphasis::bold, "\nOptions:\n");
     fmt::print("init              \t\tInitializes a new project\n");
     fmt::print("new <folder_name> \t\tCreates a new project\n");
@@ -23,94 +21,60 @@ void printHelp()
 }
 
 
-void initProject(const std::filesystem::path& currentPath)
-{
-    // initialize the git repo
-    plusutil::initGitRepository(currentPath.string());
-
-    // create the .gitignore and .gitattributes files
-    plusutil::initGitFiles(currentPath.string());
-
-    // create the src folder
-    plusutil::create_directory(currentPath.string() + "/src");
-
-    // create the main.cpp file
-    plusutil::create_file(currentPath.string() + "/src");
-
-    // create the out directory
-    plusutil::create_directory(currentPath.string() + "/out");
-
-    plusutil::createCmakeLists(currentPath.string(), currentPath.stem().string());
-}
-
-
-void initProject(const std::filesystem::path& currentPath, const std::string& projectName)
-{
-    // initialize the git repo
-    plusutil::initGitRepository(currentPath.string());
-
-    // create the .gitignore and .gitattributes files
-    plusutil::initGitFiles(currentPath.string());
-
-    // create the src folder
-    plusutil::create_directory(currentPath.string() + "/src");
-
-    // create the main.cpp file
-    plusutil::create_file(currentPath.string() + "/src");
-
-    // create the out directory
-    plusutil::create_directory(currentPath.string() + "/out");
-
-    plusutil::createCmakeLists(currentPath.string(), projectName);
-}
-
-
-void run(const std::vector<std::string>& args)
+void Cli::run(const std::vector<std::string>& args)
 {
     // get the current path so we wont have to querry it every time
-    std::filesystem::path currentPath = std::filesystem::current_path();
-
+    currentPath = std::filesystem::current_path().string();
     // plus -h or plus --help
-    if(std::ranges::find(args.begin(), args.end(), "-h") != args.end()||
-        std::ranges::find(args.begin(), args.end(), "--help") != args.end())
+    if (std::ranges::find(args, "-h") != args.end() ||
+        std::ranges::find(args, "--help") != args.end())
     {
         printHelp();
         return;
     }
-
     // plus -v or plus --version
-    else if(std::ranges::find(args.begin(), args.end(), "-v") != args.end()||
-        std::ranges::find(args.begin(), args.end(), "--version") != args.end())
+    else if (std::ranges::find(args, "-v") != args.end() ||
+        std::ranges::find(args, "--version") != args.end())
     {
         fmt::print("plus v0.1\n");
         printHelp();
         return;
     }
-
     // plus init
-    else if(std::ranges::find(args.begin(), args.end(), "init") != args.end())
+    else if (std::ranges::find(args, "init") != args.end())
     {
+        projectName = std::filesystem::current_path().stem().string();
         fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Initializing a new project\n");
-        initProject(currentPath);
+        initProject(currentPath, projectName);
         return;
     }
-
     // plus new "Hello World"
-    else if(std::ranges::find(args.begin(), args.end(), "new") != args.end())
+    else if (std::ranges::find(args, "new") != args.end())
     {
-        std::string projectName = plusutil::get_project_name(args).value();
-        std::string projectPath = currentPath.string() + "/" + projectName;
-
+        projectName = plusutil::get_project_name(args).value();
+        std::string projectPath = currentPath + "/" + projectName;
         fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Creating a new project\n");
-
         plusutil::create_directory(projectPath);
-        initProject(projectPath);
+        initProject(projectPath, projectName);
         return;
     }
-
     else
     {
         printHelp();
         exit(1);
     }
+}
+
+
+void Cli::initProject(const std::string& repositoryPath, const std::string& projectName)
+{
+    repo.initGitRepository(repositoryPath);
+    repo.initGitFiles(repositoryPath);
+
+    // create the src folder and out directory
+    plusutil::create_directory(repositoryPath + "/src");
+    plusutil::create_directory(repositoryPath + "/out");
+    // create the main.cpp file
+    plusutil::create_file(repositoryPath);
+    plusutil::createCmakeLists(repositoryPath, projectName);
 }

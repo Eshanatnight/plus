@@ -9,10 +9,11 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        printHelp();
+        Cli::printHelp();
         return 0;
     }
 
+    Cli app;
     std::vector<std::string> args(argv, argv + argc);
-    run(args);
+    app.run(args);
 }

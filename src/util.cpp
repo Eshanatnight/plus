@@ -10,7 +10,7 @@ void plusutil::createCmakeLists(const std::string &path, const std::string& proj
 {
     fmt::print(fg(fmt::color::lawn_green), "Creating CMakeLists.txt\n");
 
-    auto cmakelists = fmt::output_file(path + "/CMakeLists.txt", fmt::file::WRONLY | fmt::file::CREATE);
+    auto cmakelists = fmt::output_file(path + "/CMakeLists.txt");
     cmakelists.print("cmake_minimum_required(VERSION 3.10)\n");
     cmakelists.print("project({})\n", project_name);
     cmakelists.print("\n");
@@ -32,7 +32,7 @@ void plusutil::create_file(const std::string &path)
 
     fmt::print(fg(fmt::color::lawn_green), "Creating file...\n");
 
-    auto main_cpp = fmt::output_file(path + "/main.cpp", fmt::file::WRONLY | fmt::file::CREATE);
+    auto main_cpp = fmt::output_file(path + "/src/main.cpp");
     main_cpp.print("#include <iostream>\n\n");
     main_cpp.print("int main()\n");
     main_cpp.print("{}\n", brace_open);
