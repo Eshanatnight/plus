@@ -36,7 +36,7 @@ void Cli::run(const std::vector<std::string>& args)
     else if (std::ranges::find(args, "-v") != args.end() ||
         std::ranges::find(args, "--version") != args.end())
     {
-        fmt::print("plus v0.1\n");
+        fmt::print("plus v2.0\n");
         printHelp();
         return;
     }
