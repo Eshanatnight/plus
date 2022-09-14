@@ -6,6 +6,7 @@ A Small Utility App For C/CPP and CMake users.
 
 - [vcpkg](https://github.com/microsoft/vcpkg)
 - [cmake](https://cmake.org/)
+- [premake](https://premake.github.io/)
 
 ## Building with cmake and vcpkg
 
@@ -26,11 +27,21 @@ A Small Utility App For C/CPP and CMake users.
 ```
 
 ```terminal
-    cmake -DCMAKE_TOOLCHAIN_FILE="<path>/<to>/<vcpkg>/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -S.. -B .
+    cmake -DCMAKE_TOOLCHAIN_FILE="<path>/<to>/<vcpkg>/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -G<generator> -S.. -B .
 ```
+
+### If MSVC
 
 ```terminal
     cmake --build . --config Release
+```
+
+## Building with Premake
+
+Download the premake5 executable. Then use
+
+```bash
+    premake5 <generator>
 ```
 
 ### Using Other Compilers to Build
