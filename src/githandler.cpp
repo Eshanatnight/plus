@@ -10,10 +10,7 @@
 #include <Windows.h>
 
 plusutil::PlusGit::PlusGit()
-{
-    auto_git_initializer;
-    repo = std::make_unique<git::Repository>(git::Repository(".", git::Repository::init));
-}
+{}
 
 void plusutil::PlusGit::initGitRepository(const std::string& repositoryPath)
 {
