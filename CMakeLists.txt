@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
 project(plus)
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY 					${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY 					${CMAKE_BINARY_DIR}/bin)
+
 # Until CMake 3.20.3, if you ask for C++20, using set(CMAKE_CXX_STANDARD 20), you'll get -std:c++latest.
 # Since CMake 3.20.4, set(CMAKE_CXX_STANDARD 20) gets you -std:c++20,
 # so you need set(CMAKE_CXX_STANDARD 23) to get -std:c++latest --
 # assuming that your MSVC compiler version is 16.11 Preview 1 or later (see cmake commit 3aaf1d91bf353).
 # issue with the standard library of MSVC
 # https://stackoverflow.com/questions/64889383/how-to-enable-stdclatest-in-cmake
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD                                                   23)
 
 
 set(SRC_FILE
@@ -15,6 +18,8 @@ set(SRC_FILE
     src/githandler.cpp
     src/main.cpp
     src/util.cpp
+)
+set(CPPGIT2_SRC_FILE
     src/cppgit2/annotated_commit.cpp
     src/cppgit2/blame.cpp
     src/cppgit2/blob.cpp
@@ -44,6 +49,9 @@ set(HEADER_FILE
     "include/cli.h"
     "include/githandler.h"
     "include/util.h"
+)
+
+set(CPPGIT2_HEADER_FILE
     "include/cppgit2/annotated_commit.h"
     "include/cppgit2/blame.h"
     "include/cppgit2/blob.h"
@@ -72,7 +80,9 @@ set(HEADER_FILE
 
 add_executable(${PROJECT_NAME}
     ${SRC_FILE}
+    ${CPPGIT2_SRC_FILE}
     ${HEADER_FILE}
+    ${CPPGIT2_HEADER_FILE}
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC ".\\include")
