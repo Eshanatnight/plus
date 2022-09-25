@@ -44,7 +44,7 @@ void Cli::run(const std::vector<std::string>& args)
     else if (std::ranges::find(args, "init") != args.end())
     {
         projectName = std::filesystem::current_path().stem().string();
-        fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Initializing a new project\n");
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Initializing project\n");
         initProject(currentPath, projectName);
         return;
     }
@@ -53,7 +53,7 @@ void Cli::run(const std::vector<std::string>& args)
     {
         projectName = plusutil::get_project_name(args).value();
         std::string projectPath = currentPath + "/" + projectName;
-        fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Creating a new project\n");
+        fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Creating new project\n");
         plusutil::create_directory(projectPath);
         initProject(projectPath, projectName);
         return;

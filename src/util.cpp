@@ -8,8 +8,6 @@
 
 void plusutil::createCmakeLists(const std::string &path, const std::string& project_name)
 {
-    fmt::print(fg(fmt::color::lawn_green), "Creating CMakeLists.txt\n");
-
     auto cmakelists = fmt::output_file(path + "/CMakeLists.txt");
     cmakelists.print("cmake_minimum_required(VERSION 3.10)\n");
     cmakelists.print("project({})\n", project_name);
@@ -21,7 +19,6 @@ void plusutil::createCmakeLists(const std::string &path, const std::string& proj
 
 void plusutil::create_directory(const std::string &path)
 {
-    fmt::print(fg(fmt::color::lawn_green), "Creating directory: {}\n", path);
     std::filesystem::create_directory(path);
 }
 
@@ -29,8 +26,6 @@ void plusutil::create_file(const std::string &path)
 {
     char brace_open = '{';
     char brace_close = '}';
-
-    fmt::print(fg(fmt::color::lawn_green), "Creating file...\n");
 
     auto main_cpp = fmt::output_file(path + "/src/main.cpp");
     main_cpp.print("#include <iostream>\n\n");

@@ -14,9 +14,6 @@ plusutil::PlusGit::PlusGit()
 
 void plusutil::PlusGit::initGitRepository(const std::string& repositoryPath)
 {
-    fmt::print(fg(fmt::color::lawn_green), "Initializing a git repository\n");
-    fmt::print(fg(fmt::color::lawn_green), "Repository path: {}\n", repositoryPath);
-
     auto_git_initializer;
     auto repo = git::Repository(repositoryPath, git::Repository::init);
 }
@@ -24,7 +21,6 @@ void plusutil::PlusGit::initGitRepository(const std::string& repositoryPath)
 
 void plusutil::PlusGit::initGitFiles(const std::string& path)
 {
-    fmt::print(fg(fmt::color::lawn_green), "Initializing a gitignore file\n");
     auto gitignore = fmt::output_file(path + "/.gitignore", fmt::file::WRONLY | fmt::file::CREATE);
 
     gitignore.print("# CMAKE Stuff\n\n");
