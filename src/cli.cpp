@@ -12,12 +12,16 @@ void Cli::printHelp()
 {
     fmt::print(fg(fmt::color::lawn_green), "Usage:\n");
     fmt::print(fg(fmt::color::green), "plus ");
-    fmt::print("[options] \n");
-    fmt::print(fmt::emphasis::bold, "\nOptions:\n");
-    fmt::print("init              \t\tInitializes a new project\n");
-    fmt::print("new <folder_name> \t\tCreates a new project\n");
-    fmt::print("-v, --version     \t\tPrints the version of the program\n");
-    fmt::print("-h, --help        \t\tPrints this help\n");
+    fmt::print("[commands] \n");
+    fmt::print(fmt::emphasis::bold, "\nCommands:\n");
+    fmt::print("init <subcommand>              \t\tInitializes a new project\n");
+    fmt::print("new <folder_name> <subcommand> \t\tCreates a new project\n");
+    fmt::print("-v, --version                  \t\tPrints the version of the program\n");
+    fmt::print("-h, --help                     \t\tPrints this help\n");
+    fmt::print("\n\n");
+    fmt::print(fmt::emphasis::bold, "Subcommands:\n");
+    fmt::print("--lib                          \t\tInitializes a new library project\n");
+    fmt::print("--bin                          \t\tInitializes a new binary project (Default)\n");
 }
 
 
@@ -29,33 +33,50 @@ void Cli::run(const std::vector<std::string>& args)
     if (std::ranges::find(args, "-h") != args.end() ||
         std::ranges::find(args, "--help") != args.end())
     {
+        if(args.size() == 1) {
+            fmt::print("Invalid Command\n");
+            return;
+        }
         printHelp();
         return;
     }
+
     // plus -v or plus --version
     else if (std::ranges::find(args, "-v") != args.end() ||
         std::ranges::find(args, "--version") != args.end())
     {
-        fmt::print("plus v2.0\n");
+        if(args.size() == 1) {
+            fmt::print("Invalid Command\n");
+            return;
+        }
+        fmt::print("plus v3.1\n");
         printHelp();
         return;
     }
     // plus init
     else if (std::ranges::find(args, "init") != args.end())
     {
-        projectName = std::filesystem::current_path().stem().string();
+        bool isLib = false;
+        if(std::ranges::find(args, "--lib") != args.end()) {
+            isLib = true;
+        }
+        this->projectName = std::filesystem::current_path().stem().string();
         fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Initializing project\n");
-        initProject(currentPath, projectName);
+        this->initProject(currentPath, projectName, isLib);
         return;
     }
     // plus new "Hello World"
     else if (std::ranges::find(args, "new") != args.end())
     {
-        projectName = plusutil::get_project_name(args).value();
+        bool isLib = false;
+        if(std::ranges::find(args, "--lib") != args.end()) {
+            isLib = true;
+        }
+        this->projectName = plusutil::get_project_name(args).value();
         std::string projectPath = currentPath + "/" + projectName;
         fmt::print(fmt::emphasis::bold | fg(fmt::color::azure), "Creating new project\n");
         plusutil::create_directory(projectPath);
-        initProject(projectPath, projectName);
+        this->initProject(projectPath, projectName, isLib);
         return;
     }
     else
@@ -66,15 +87,15 @@ void Cli::run(const std::vector<std::string>& args)
 }
 
 
-void Cli::initProject(const std::string& repositoryPath, const std::string& projectName)
+void Cli::initProject(const std::string& repositoryPath, const std::string& projectName, bool isLib)
 {
-    repo.initGitRepository(repositoryPath);
-    repo.initGitFiles(repositoryPath);
+    this->repo.initGitRepository(repositoryPath);
+    this->repo.initGitFiles(repositoryPath);
 
     // create the src folder and out directory
     plusutil::create_directory(repositoryPath + "/src");
-    plusutil::create_directory(repositoryPath + "/out");
-    // create the main.cpp file
+    plusutil::create_directory(repositoryPath + "/build");
+
     plusutil::create_file(repositoryPath);
-    plusutil::createCmakeLists(repositoryPath, projectName);
+    plusutil::createCmakeLists(repositoryPath, projectName, isLib);
 }

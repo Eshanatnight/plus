@@ -14,7 +14,7 @@ public:
     void run(const std::vector<std::string>& args);
 
 private:
-    void initProject(const std::string& repositoryPath, const std::string& projectName);
+    void initProject(const std::string& repositoryPath, const std::string& projectName, bool isLib);
 
 private:
     plusutil::PlusGit repo;

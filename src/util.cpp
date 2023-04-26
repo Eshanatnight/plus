@@ -6,13 +6,17 @@
 #include <fmt/color.h>
 #include <fmt/format.h>
 
-void plusutil::createCmakeLists(const std::string &path, const std::string& project_name)
+void plusutil::createCmakeLists(const std::string &path, const std::string& project_name, bool isLib)
 {
     auto cmakelists = fmt::output_file(path + "/CMakeLists.txt");
     cmakelists.print("cmake_minimum_required(VERSION 3.10)\n");
     cmakelists.print("project({})\n", project_name);
     cmakelists.print("\n");
-    cmakelists.print("add_executable({} {})\n", project_name, "main.cpp");
+    if(isLib){
+        cmakelists.print("add_library({} {})\n", project_name, "src/main.cpp");
+    } else{
+        cmakelists.print("add_executable({} {})\n", project_name, "src/main.cpp");
+    }
     cmakelists.flush();
     cmakelists.close();
 }

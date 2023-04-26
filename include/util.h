@@ -6,7 +6,7 @@
 namespace plusutil
 {
     // create camkelists.txt
-    void createCmakeLists(const std::string& path, const std::string& project_name);
+    void createCmakeLists(const std::string& path, const std::string& project_name, bool isLib);
 
     // create directory
     void create_directory(const std::string& path);
