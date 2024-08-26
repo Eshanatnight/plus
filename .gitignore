@@ -17,3 +17,7 @@
 
 # log files
 .gitlog
+
+# Added by cargo
+
+/target
