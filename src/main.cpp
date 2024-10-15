@@ -1,19 +1,38 @@
-#include "cli.h"
-#include <git2.h>
-#include <fmt/os.h>
-#include <fmt/ostream.h>
-#include <fmt/color.h>
+#include "structopt.hpp"
 
+#include <cstdlib>
+#include <iostream>
 
-int main(int argc, char** argv)
-{
-	if(argc < 2)
-    {
-        Cli::printHelp();
-        return 0;
-    }
+struct Cli {
+	struct Init : structopt::sub_command {
+		bool i;
+	};
+	struct New : structopt::sub_command {
+		std::string projectName;
+	};
 
-    Cli app;
-    std::vector<std::string> args(argv, argv + argc);
-    app.run(args);
+	// sub commands
+	Init init;
+	New new_;
+};
+
+STRUCTOPT(Cli::Init, i);
+STRUCTOPT(Cli::New, projectName);
+STRUCTOPT(Cli, init, new_);
+
+auto main(int argc, char** argv) -> int {
+#ifndef DEBUG
+	try {
+#endif
+		const auto cli = structopt::app("plus").parse<Cli>(argc, argv);
+		if(cli.new_.has_value()) {
+			std::cout << "Hey New has value: " << cli.new_.projectName << std::endl;
+		}
+#ifndef DEBUG
+	} catch(const structopt::exception& e) {
+		std::cerr << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+#endif
+	return EXIT_SUCCESS;
 }
