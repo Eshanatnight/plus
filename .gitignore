@@ -17,3 +17,6 @@
 
 # log files
 .gitlog
+
+deps
+CMakeUserPresets.json
