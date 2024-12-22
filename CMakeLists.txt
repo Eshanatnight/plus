@@ -31,7 +31,7 @@ endif()
 
 set(STRUCTOPT_SRC ${structopt_SOURCE_DIR}/src)
 
-set(PLUS_SRC ./src/main.cpp ./src/git.cpp)
+set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp)
 find_package(libgit2)
 
 add_executable(${PROJECT_NAME} ${PLUS_SRC})
