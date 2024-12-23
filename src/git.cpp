@@ -1,11 +1,13 @@
 #include "git.h"
 
+#include "data.h"
+
 #include <git2/global.h>
 #include <git2/repository.h>
 #include <git2/types.h>
 #include <iostream>
 
-auto initializGitRepo(const std::filesystem::path& path, const bool makePath) -> void {
+auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -> void {
 
 	git_libgit2_init();
 
@@ -28,4 +30,22 @@ auto initializGitRepo(const std::filesystem::path& path, const bool makePath) ->
 
 	git_repository_free(repo);
 	git_libgit2_shutdown();
+}
+
+auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd)
+	-> std::optional<std::future<void>> {
+	if(cli.init.has_value()) {
+		_initializGitRepo(pwd, false);
+	} else if(cli.new_.has_value()) {
+		pwd = pwd / cli.new_.projectName.c_str();
+		_initializGitRepo(pwd, true);
+	}
+
+	return std::async(std::launch::async, [&pwd]() {
+		namespace fs = std::filesystem;
+		// create the build dir
+		fs::create_directories(pwd / FilePaths::BUILD_PATH);
+	});
+
+	return std::nullopt;
 }
