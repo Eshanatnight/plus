@@ -1,4 +1,6 @@
 #include "cli.h"
+#include "data.h"
+#include "file_control.h"
 #include "git.h"
 
 #include <filesystem>
@@ -17,11 +19,13 @@ auto main(int argc, char** argv) -> int {
 
 		auto initialized = initializGitRepo(cli, pwd);
 
-		if(!initialized.has_value()) {
+		if(!initialized) {
 			std::cerr << app.help();
 			return EXIT_FAILURE;
 		}
-		futures.emplace_back(std::move(initialized.value()));
+
+		futures.emplace_back(makeBuildDir(pwd));
+		makeFiles(futures, pwd);
 
 		for(auto& fut: futures) fut.get();
 

@@ -30,6 +30,8 @@ namespace FileContents {
 												  "*.exe\n"
 												  "*.obj\n"
 												  "\n";
+
+	static constexpr std::string_view cmakeLists = "";
 }
 
 namespace FilePaths {

@@ -1,7 +1,5 @@
 #include "git.h"
 
-#include "data.h"
-
 #include <git2/global.h>
 #include <git2/repository.h>
 #include <git2/types.h>
@@ -32,20 +30,17 @@ auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -
 	git_libgit2_shutdown();
 }
 
-auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd)
-	-> std::optional<std::future<void>> {
+auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd) -> bool {
 	if(cli.init.has_value()) {
 		_initializGitRepo(pwd, false);
+
+		return true;
 	} else if(cli.new_.has_value()) {
 		pwd = pwd / cli.new_.projectName.c_str();
 		_initializGitRepo(pwd, true);
+
+		return true;
 	}
 
-	return std::async(std::launch::async, [&pwd]() {
-		namespace fs = std::filesystem;
-		// create the build dir
-		fs::create_directories(pwd / FilePaths::BUILD_PATH);
-	});
-
-	return std::nullopt;
+	return false;
 }
