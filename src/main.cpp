@@ -1,23 +1,25 @@
 #include "cli.h"
-#include "data.h"
+#include "control.h"
 #include "file_control.h"
 #include "git.h"
 
 #include <filesystem>
 #include <future>
 #include <iostream>
+#include <string>
 
 auto main(int argc, char** argv) -> int {
 	try {
 
+		// TODO: make it an array
 		std::vector<std::future<void>> futures;
 		futures.reserve(5);
 		auto app	   = structopt::app("plus");
 		const auto cli = app.parse<Cli>(argc, argv);
 
 		std::filesystem::path pwd = std::filesystem::current_path();
-
-		auto initialized = initializGitRepo(cli, pwd);
+		std::string appName;
+		auto initialized = initializGitRepo(cli, pwd, appName);
 
 		if(!initialized) {
 			std::cerr << app.help();
@@ -25,9 +27,8 @@ auto main(int argc, char** argv) -> int {
 		}
 
 		futures.emplace_back(makeBuildDir(pwd));
-		makeFiles(futures, pwd);
-
-		for(auto& fut: futures) fut.get();
+		makeFiles(futures, pwd, appName);
+		resolve(futures);
 
 	} catch(const structopt::exception& e) {
 		std::cerr << e.what() << std::endl;

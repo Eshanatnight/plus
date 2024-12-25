@@ -1,6 +1,10 @@
 #pragma once
 
-#include <string_view>
+#include <string>
+
+namespace Ident {
+	static constexpr std::string_view plusMyAPP = "PLUS_MY_APP";
+}
 
 namespace FileContents {
 
@@ -31,7 +35,12 @@ namespace FileContents {
 												  "*.obj\n"
 												  "\n";
 
-	static constexpr std::string_view cmakeLists = "";
+	static std::string cmakeLists = "cmake_minimum_required(VERSION 3.10)\n"
+									"\n"
+									"project(PLUS_MY_APP)\n"
+									"\n"
+									"add_executable(${PROJECT_NAME} ./src/main.cpp)\n"
+									"\n";
 }
 
 namespace FilePaths {

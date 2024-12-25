@@ -2,10 +2,12 @@
 
 #include "data.h"
 
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <future>
 #include <iostream>
+#include <string_view>
 #include <vector>
 
 auto InstPathToFilePath(InstPath file, std::filesystem::path& basePath) -> std::filesystem::path {
@@ -46,13 +48,21 @@ auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void> {
 	});
 }
 
-auto makeFiles(std::vector<std::future<void>>& futs, std::filesystem::path& basePath) -> void {
+auto makeFiles(
+	std::vector<std::future<void>>& futs, std::filesystem::path& basePath, std::string_view appName)
+	-> void {
 
 	futs.push_back(std::async(std::launch::async,
 		[&basePath]() { _writeContent(basePath, InstPath::MAINCPP, FileContents::mainCPP); }));
 	futs.push_back(std::async(std::launch::async,
 		[&basePath]() { _writeContent(basePath, InstPath::GITIGNORE, FileContents::gitIgnore); }));
-	futs.push_back(std::async(std::launch::async, [&basePath]() {
-		_writeContent(basePath, InstPath::CMAKELISTS, FileContents::cmakeLists);
+	futs.push_back(std::async(std::launch::async, [&basePath, appName]() {
+		// TODO: figure out a better way
+		const std::size_t pos = FileContents::cmakeLists.find(Ident::plusMyAPP);
+		auto result			  = FileContents::cmakeLists.substr(0, pos);
+		result += appName;
+		result += FileContents::cmakeLists.substr(pos + std::string(Ident::plusMyAPP).length());
+
+		_writeContent(basePath, InstPath::CMAKELISTS, result);
 	}));
 }

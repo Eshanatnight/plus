@@ -16,4 +16,6 @@ auto _writeContent(std::filesystem::path& basePath, InstPath instPath, std::stri
 	-> bool;
 
 auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void>;
-auto makeFiles(std::vector<std::future<void>>& futs, std::filesystem::path& basePath) -> void;
+auto makeFiles(
+	std::vector<std::future<void>>& futs, std::filesystem::path& basePath, std::string_view appName)
+	-> void;

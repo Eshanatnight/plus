@@ -6,4 +6,4 @@
 
 auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -> void;
 
-auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd) -> bool;
+auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool;
