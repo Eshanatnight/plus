@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cli.h"
+
 #include <filesystem>
 #include <future>
 #include <string_view>
@@ -10,12 +12,14 @@ enum class InstPath {
 	CMAKELISTS
 };
 
-auto InstPathToFilePath(InstPath file, std::filesystem::path& basePath) -> std::filesystem::path;
+auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool;
+auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
+	-> std::filesystem::path;
 
-auto _writeContent(std::filesystem::path& basePath, InstPath instPath, std::string_view content)
-	-> bool;
+auto _writeContent(
+	const std::filesystem::path& basePath, InstPath instPath, std::string_view content) -> bool;
 
 auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void>;
-auto makeFiles(
-	std::vector<std::future<void>>& futs, std::filesystem::path& basePath, std::string_view appName)
-	-> void;
+auto makeFiles(std::vector<std::future<void>>& futs,
+	const std::filesystem::path& basePath,
+	std::string_view appName) -> void;

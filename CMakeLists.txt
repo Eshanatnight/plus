@@ -33,6 +33,7 @@ set(STRUCTOPT_SRC ${structopt_SOURCE_DIR}/src)
 
 set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp)
 find_package(libgit2)
+find_package(tomlplusplus)
 
 add_executable(${PROJECT_NAME} ${PLUS_SRC})
 
@@ -40,4 +41,4 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 target_include_directories(${PROJECT_NAME} PUBLIC ${STRUCTOPT_SRC})
 target_include_directories(${PROJECT_NAME} PUBLIC ./src/include)
 
-target_link_libraries(${PROJECT_NAME} libgit2::libgit2)
+target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplus)

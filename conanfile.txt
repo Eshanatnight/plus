@@ -1,5 +1,6 @@
 [requires]
 libgit2/1.8.1
+tomlplusplus/3.4.0
 
 [generators]
 CMakeDeps

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <toml++/toml.hpp>
 
 namespace Ident {
 	static constexpr std::string_view plusMyAPP = "PLUS_MY_APP";
@@ -41,6 +42,7 @@ namespace FileContents {
 									"\n"
 									"add_executable(${PROJECT_NAME} ./src/main.cpp)\n"
 									"\n";
+
 }
 
 namespace FilePaths {

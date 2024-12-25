@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <optional>
+#include <string_view>
 #include <structopt.hpp>
 
 struct Cli {
@@ -16,7 +17,14 @@ struct Cli {
 		std::string projectName;
 		std::optional<Type> packageType = Type::bin;
 	};
-
+	static constexpr auto TypeToString(Type type) -> std::string_view {
+		switch(type) {
+		case Type::bin :
+			return "bin";
+		case Type::lib :
+			return "lib";
+		}
+	}
 	// sub commands
 	Init init;
 	New new_;

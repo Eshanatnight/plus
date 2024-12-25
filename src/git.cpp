@@ -29,20 +29,3 @@ auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -
 	git_repository_free(repo);
 	git_libgit2_shutdown();
 }
-
-auto initializGitRepo(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool {
-	if(cli.init.has_value()) {
-		_initializGitRepo(pwd, false);
-		appName = pwd.filename();
-
-		return true;
-	} else if(cli.new_.has_value()) {
-		appName = cli.new_.projectName.c_str();
-		pwd		= pwd / cli.new_.projectName.c_str();
-		_initializGitRepo(pwd, true);
-
-		return true;
-	}
-
-	return false;
-}

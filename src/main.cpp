@@ -19,7 +19,7 @@ auto main(int argc, char** argv) -> int {
 
 		std::filesystem::path pwd = std::filesystem::current_path();
 		std::string appName;
-		auto initialized = initializGitRepo(cli, pwd, appName);
+		auto initialized = initialize(cli, pwd, appName);
 
 		if(!initialized) {
 			std::cerr << app.help();
