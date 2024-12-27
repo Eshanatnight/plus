@@ -29,7 +29,7 @@ auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName
 		pwd		= pwd / cli.new_.projectName.c_str();
 		_initializGitRepo(pwd, true);
 		if(cli.new_.packageType.has_value()) {
-			packageType = Cli::TypeToString(cli.new_.packageType.value());
+			packageType = TypeToString(cli.new_.packageType.value());
 		}
 
 		ret = true;
@@ -94,18 +94,27 @@ auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void> {
 
 auto makeFiles(std::vector<std::future<void>>& futs,
 	const std::filesystem::path& basePath,
-	std::string_view appName) -> void {
+	std::string_view appName,
+	bool isLib) -> void {
 
 	futs.push_back(std::async(std::launch::async,
 		[&basePath]() { _writeContent(basePath, InstPath::MAINCPP, FileContents::mainCPP); }));
 	futs.push_back(std::async(std::launch::async,
 		[&basePath]() { _writeContent(basePath, InstPath::GITIGNORE, FileContents::gitIgnore); }));
-	futs.push_back(std::async(std::launch::async, [&basePath, appName]() {
+	futs.push_back(std::async(std::launch::async, [&basePath, appName, isLib]() {
 		// TODO: figure out a better way
 		const std::size_t pos = FileContents::cmakeLists.find(Ident::plusMyAPP);
 		auto result			  = FileContents::cmakeLists.substr(0, pos);
 		result += appName;
 		result += FileContents::cmakeLists.substr(pos + std::string(Ident::plusMyAPP).length());
+		if(isLib) {
+			const std::size_t pos = result.find(Ident::addExecuteable);
+			std::string temp	  = result.substr(0, pos);
+			temp += Ident::addLibrary;
+			temp += result.substr(pos + Ident::addExecuteable.length());
+
+			result = temp;
+		}
 
 		_writeContent(basePath, InstPath::CMAKELISTS, result);
 	}));

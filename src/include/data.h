@@ -1,10 +1,13 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <toml++/toml.hpp>
 
 namespace Ident {
-	static constexpr std::string_view plusMyAPP = "PLUS_MY_APP";
+	static constexpr std::string_view plusMyAPP		 = "PLUS_MY_APP";
+	static constexpr std::string_view addExecuteable = "add_executable";
+	static constexpr std::string_view addLibrary	 = "add_library";
 }
 
 namespace FileContents {

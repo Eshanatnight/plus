@@ -27,7 +27,7 @@ auto main(int argc, char** argv) -> int {
 		}
 
 		futures.emplace_back(makeBuildDir(pwd));
-		makeFiles(futures, pwd, appName);
+		makeFiles(futures, pwd, appName, isLib(cli));
 		resolve(futures);
 
 	} catch(const structopt::exception& e) {
