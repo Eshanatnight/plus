@@ -11,11 +11,11 @@ struct Cli {
 		lib
 	};
 	struct Init : structopt::sub_command {
-		std::optional<Type> packageType = Type::bin;
+		std::optional<Type> kind = Type::bin;
 	};
 	struct New : structopt::sub_command {
 		std::string projectName;
-		std::optional<Type> packageType = Type::bin;
+		std::optional<Type> kind = Type::bin;
 	};
 
 	// sub commands
@@ -36,7 +36,7 @@ static inline bool isLib(const Cli& cli) {
 	bool ret = false;
 
 	if(cli.init.has_value()) {
-		const auto type = cli.init.packageType.value();
+		const auto type = cli.init.kind.value();
 
 		switch(type) {
 		case Cli::Type::bin :
@@ -46,7 +46,7 @@ static inline bool isLib(const Cli& cli) {
 			break;
 		}
 	} else if(cli.new_.has_value()) {
-		const auto type = cli.new_.packageType.value();
+		const auto type = cli.new_.kind.value();
 
 		switch(type) {
 		case Cli::Type::bin :
@@ -62,6 +62,6 @@ static inline bool isLib(const Cli& cli) {
 
 	return ret;
 }
-STRUCTOPT(Cli::Init, packageType);
-STRUCTOPT(Cli::New, projectName, packageType);
+STRUCTOPT(Cli::Init, kind);
+STRUCTOPT(Cli::New, projectName, kind);
 STRUCTOPT(Cli, init, new_);

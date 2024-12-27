@@ -11,46 +11,46 @@
 #include <ostream>
 #include <string>
 #include <string_view>
-#include <toml++/impl/array.hpp>
-#include <toml++/impl/json_formatter.hpp>
-#include <toml++/impl/toml_formatter.hpp>
+#include <toml++/toml.hpp>
 #include <vector>
 
 auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool {
 
 	std::string_view packageType = "bin";
-	bool ret					 = false;
 	if(cli.init.has_value()) {
 		_initializGitRepo(pwd, false);
 		appName = pwd.filename();
-		ret		= true;
+
+		if(cli.init.kind.has_value()) {
+			packageType = TypeToString(cli.new_.kind.value());
+		}
+
 	} else if(cli.new_.has_value()) {
 		appName = cli.new_.projectName.c_str();
 		pwd		= pwd / cli.new_.projectName.c_str();
 		_initializGitRepo(pwd, true);
-		if(cli.new_.packageType.has_value()) {
-			packageType = TypeToString(cli.new_.packageType.value());
+		if(cli.new_.kind.has_value()) {
+			packageType = TypeToString(cli.new_.kind.value());
 		}
-
-		ret = true;
+	} else {
+		return false;
 	}
 
-	if(ret) {
-		// save the config toml
-		auto tbl = toml::table{
-			{ "project",
-				toml::table{ { "name", appName },
-					{ "kind", packageType },
-					{ "buildDir", FilePaths::BUILD_PATH },
-					{ "author", toml::table{ { "name", "" }, { "repo", "" } } } } }
-		};
+	// save the config toml
+	auto tbl = toml::table{
+		{ "project",
+			toml::table{ { "name", appName },
+			{ "kind", packageType },
+			{ "buildDir", FilePaths::BUILD_PATH },
+			{ "repo", "" } }						 },
+		{  "author", toml::table{ { "name", "" } } }
+	};
 
-		std::ofstream tomlFile(pwd / "plus.toml");
+	std::ofstream tomlFile(pwd / "plus.toml");
 
-		tomlFile << toml::toml_formatter(tbl);
-	}
+	tomlFile << toml::toml_formatter(tbl);
 
-	return ret;
+	return true;
 }
 
 auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
