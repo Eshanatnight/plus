@@ -16,6 +16,16 @@ FetchContent_Declare(
 FetchContent_GetProperties(structopt)
 FetchContent_MakeAvailable(structopt)
 
+FetchContent_Declare(
+  subprocess
+  GIT_REPOSITORY https://github.com/Eshanatnight/subprocess
+  GIT_TAG        master
+)
+
+FetchContent_GetProperties(subprocess)
+FetchContent_MakeAvailable(subprocess)
+
+
 if(MSVC)
   # Force to always compile with W4
   if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
@@ -31,7 +41,7 @@ endif()
 
 set(STRUCTOPT_SRC ${structopt_SOURCE_DIR}/src)
 
-set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp)
+set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp ./src/config.cpp)
 find_package(libgit2)
 find_package(tomlplusplus)
 
@@ -41,4 +51,4 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 target_include_directories(${PROJECT_NAME} PUBLIC ${STRUCTOPT_SRC})
 target_include_directories(${PROJECT_NAME} PUBLIC ./src/include)
 
-target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplus)
+target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplus subprocess)

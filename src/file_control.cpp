@@ -1,7 +1,11 @@
 #include "file_control.h"
 
+#include "config.h"
+#include "control.h"
 #include "data.h"
 #include "git.h"
+#include "subprocess/basic_types.hpp"
+#include "subprocess/ProcessBuilder.hpp"
 
 #include <cstddef>
 #include <filesystem>
@@ -11,10 +15,11 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#include <subprocess.hpp>
 #include <toml++/toml.hpp>
 #include <vector>
 
-auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool {
+auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool {
 
 	std::string_view packageType = "bin";
 	if(cli.init.has_value()) {
@@ -26,29 +31,46 @@ auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName
 		}
 
 	} else if(cli.new_.has_value()) {
-		appName = cli.new_.projectName.c_str();
-		pwd		= pwd / cli.new_.projectName.c_str();
+		appName = cli.new_.projectName;
+		pwd		= pwd / cli.new_.projectName;
 		_initializGitRepo(pwd, true);
 		if(cli.new_.kind.has_value()) {
 			packageType = TypeToString(cli.new_.kind.value());
 		}
+	} else if(cli.build.has_value()) {
+
+		// check if plus.toml exists or not
+		const auto exists = std::filesystem::exists(pwd / FilePaths::PLUSTOML);
+
+		if(!exists) {
+			std::cerr << "plus.toml does not exists.\nAre you in the correct directory?\n";
+
+			return false;
+		}
+
+		auto conf = Config(pwd / FilePaths::PLUSTOML);
+
+		auto process = subprocess::run({ "cmake", "--build", conf.proj.buildDir });
+		return true;
+
 	} else {
 		return false;
 	}
 
-	// save the config toml
-	auto tbl = toml::table{
-		{ "project",
-			toml::table{ { "name", appName },
-			{ "kind", packageType },
-			{ "buildDir", FilePaths::BUILD_PATH },
-			{ "repo", "" } }						 },
-		{  "author", toml::table{ { "name", "" } } }
-	};
+	Config conf = Config(appName, packageType, std::string(FilePaths::BUILD_PATH));
+
+	const auto tbl = conf.toTomlTable();
 
 	std::ofstream tomlFile(pwd / "plus.toml");
 
 	tomlFile << toml::toml_formatter(tbl);
+
+	// TODO: make it an array
+	std::vector<std::future<void>> futures;
+	futures.reserve(5);
+	futures.emplace_back(makeBuildDir(pwd));
+	makeFiles(futures, pwd, appName, isLib(cli));
+	resolve(futures);
 
 	return true;
 }
@@ -102,7 +124,7 @@ auto makeFiles(std::vector<std::future<void>>& futs,
 	futs.push_back(std::async(std::launch::async,
 		[&basePath]() { _writeContent(basePath, InstPath::GITIGNORE, FileContents::gitIgnore); }));
 	futs.push_back(std::async(std::launch::async, [&basePath, appName, isLib]() {
-		// TODO: figure out a better way
+		// TODO(kellsatnite): figure out a better way
 		const std::size_t pos = FileContents::cmakeLists.find(Ident::plusMyAPP);
 		auto result			  = FileContents::cmakeLists.substr(0, pos);
 		result += appName;

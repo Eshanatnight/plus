@@ -18,9 +18,18 @@ struct Cli {
 		std::optional<Type> kind = Type::bin;
 	};
 
+	enum class BuildType {
+		dbg,
+		rel
+	};
+	struct Build : structopt::sub_command {
+		std::optional<BuildType> type = BuildType::dbg;
+	};
+
 	// sub commands
 	Init init;
 	New new_;
+	Build build;
 };
 
 static constexpr auto TypeToString(Cli::Type type) -> std::string_view {
@@ -55,13 +64,11 @@ static inline bool isLib(const Cli& cli) {
 			ret = true;
 			break;
 		}
-	} else {
-		std::cerr << "Unknown error while parsing packageType\n";
-		std::exit(1);
 	}
 
 	return ret;
 }
 STRUCTOPT(Cli::Init, kind);
+STRUCTOPT(Cli::Build, type);
 STRUCTOPT(Cli::New, projectName, kind);
-STRUCTOPT(Cli, init, new_);
+STRUCTOPT(Cli, init, new_, build);

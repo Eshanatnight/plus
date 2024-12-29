@@ -56,4 +56,6 @@ namespace FilePaths {
 	static constexpr auto MAIN_CPP	 = "main.cpp"sv;
 	static constexpr auto GITIGNORE	 = ".gitignore"sv;
 	static constexpr auto CMAKELISTS = "CMakeLists.txt"sv;
+
+	static constexpr auto PLUSTOML = "plus.toml"sv;
 }

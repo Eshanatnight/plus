@@ -12,10 +12,11 @@ enum class InstPath {
 	CMAKELISTS
 };
 
-auto initialize(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool;
+auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool;
 auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
 	-> std::filesystem::path;
 
+// NOLINTNEXTLINE
 auto _writeContent(
 	const std::filesystem::path& basePath, InstPath instPath, std::string_view content) -> bool;
 
