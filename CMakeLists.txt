@@ -5,6 +5,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -41,7 +42,7 @@ endif()
 
 set(STRUCTOPT_SRC ${structopt_SOURCE_DIR}/src)
 
-set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp ./src/config.cpp)
+set(PLUS_SRC ./src/main.cpp ./src/git.cpp ./src/file_control.cpp ./src/config.cpp ./src/utils.cpp)
 find_package(libgit2)
 find_package(tomlplusplus)
 
@@ -52,3 +53,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${STRUCTOPT_SRC})
 target_include_directories(${PROJECT_NAME} PUBLIC ./src/include)
 
 target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplus subprocess)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # add_definitions("-DDEBUG")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG=1)
+endif()

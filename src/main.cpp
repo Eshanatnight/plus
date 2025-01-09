@@ -1,6 +1,7 @@
 #include "cli.h"
 #include "file_control.h"
 
+#include <cstdlib>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -15,7 +16,17 @@ auto main(int argc, char** argv) -> int {
 		std::string appName;
 		auto initialized = initializeAndRun(cli, pwd, appName);
 
-		if(!initialized) {
+		switch(initialized) {
+		case InitializationError::OK :
+			return EXIT_SUCCESS;
+
+		case InitializationError::BUILD_DIR_DOES_NOT_EXIST :
+		case InitializationError::CMAKELISTS_NOT_FOUND :
+		case InitializationError::PLUS_TOML_NOT_FOUND :
+			return EXIT_FAILURE;
+
+		case InitializationError::INVALID_ARG :
+		case InitializationError::UNKNOWN :
 			std::cerr << app.help();
 			return EXIT_FAILURE;
 		}

@@ -26,10 +26,15 @@ struct Cli {
 		std::optional<BuildType> type = BuildType::dbg;
 	};
 
+	struct Setup : structopt::sub_command {
+		std::optional<BuildType> type = BuildType::dbg;
+	};
+
 	// sub commands
 	Init init;
 	New new_;
 	Build build;
+	Setup setup;
 };
 
 static constexpr auto TypeToString(Cli::Type type) -> std::string_view {
@@ -70,5 +75,6 @@ static inline bool isLib(const Cli& cli) {
 }
 STRUCTOPT(Cli::Init, kind);
 STRUCTOPT(Cli::Build, type);
+STRUCTOPT(Cli::Setup, type);
 STRUCTOPT(Cli::New, projectName, kind);
-STRUCTOPT(Cli, init, new_, build);
+STRUCTOPT(Cli, init, new_, build, setup);

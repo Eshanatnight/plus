@@ -12,9 +12,24 @@ enum class InstPath {
 	CMAKELISTS
 };
 
-auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> bool;
+enum class InitializationError {
+	INVALID_ARG,
+	PLUS_TOML_NOT_FOUND,
+	CMAKELISTS_NOT_FOUND,
+	BUILD_DIR_DOES_NOT_EXIST,
+	UNKNOWN,
+	OK,
+};
+
+auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName)
+	-> InitializationError;
 auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
 	-> std::filesystem::path;
+
+auto flushNewConfig(const Cli& cli,
+	const std::filesystem::path& pwd,
+	const std::string& appName,
+	std::string_view packageType) -> bool;
 
 // NOLINTNEXTLINE
 auto _writeContent(
