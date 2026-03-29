@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cstddef>
 #include <cstdlib>
 #include <ctime>
@@ -22,12 +23,15 @@
 #include <iostream>
 #include <optional>
 #include <ostream>
+#include <sstream>
 #include <system_error>
 #include <set>
 #include <string>
 #include <string_view>
 #include <subprocess.hpp>
+#include <thread>
 #include <toml++/toml.hpp>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -770,6 +774,36 @@ SOFTWARE.
 			return InitializationError::OK;
 		}
 
+		if(cli.deps.list.value_or(false)) {
+			if(conf.conan.requires.empty()) {
+				std::cout << "No Conan requirements.\n";
+			} else {
+				for(const auto& r: conf.conan.requires) {
+					std::cout << "  " << r << '\n';
+				}
+			}
+			return InitializationError::OK;
+		}
+
+		if(cli.deps.tree.value_or(false)) {
+			write_conanfile_txt(pwd, conf);
+			subprocess::RunOptions opts;
+			opts.cwd = pwd.string();
+			try {
+				const auto proc = subprocess::run(
+					subprocess::CommandLine{ "conan", "graph", "info", "." }, opts);
+				if(!subprocess_ok(proc)) {
+					plus::diag::error("conan graph info failed.\n");
+					return InitializationError::COMMAND_FAILED;
+				}
+			} catch(const std::exception& ex) {
+				plus::diag::error_stream()
+					<< "failed to run conan graph info: " << ex.what() << '\n';
+				return InitializationError::COMMAND_FAILED;
+			}
+			return InitializationError::OK;
+		}
+
 		const auto t = cli.deps.type.value_or(Cli::BuildType::dbg);
 		if(!run_conan_install(pwd, conf, t)) {
 			plus::diag::error("`conan install` failed.\n");
@@ -807,6 +841,529 @@ SOFTWARE.
 			return InitializationError::COMMAND_FAILED;
 		}
 		std::cout << "Added Conan requirement; updated `conanfile.txt`. Run `plus deps` to install.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_remove(const Cli& cli, const std::filesystem::path& pwd) -> InitializationError {
+		const auto plus_toml = pwd / FilePaths::PLUSTOML;
+		if(!std::filesystem::exists(plus_toml)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		std::string ref = trim_package_ref(cli.remove.package_ref);
+		if(ref.empty()) {
+			plus::diag::error("package reference is empty.\n");
+			return InitializationError::INVALID_ARG;
+		}
+
+		Config conf(plus_toml);
+		auto& reqs	 = conf.conan.requires;
+		const auto it = std::find(reqs.begin(), reqs.end(), ref);
+		if(it == reqs.end()) {
+			plus::diag::error_stream() << "requirement `" << ref << "` not found in plus.toml.\n";
+			return InitializationError::INVALID_ARG;
+		}
+
+		reqs.erase(it);
+		if(!save_plus_toml(pwd, conf) || !write_conanfile_txt(pwd, conf)) {
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Removed `" << ref << "` from plus.toml; updated `conanfile.txt`.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_check(const Cli& /*cli*/, const std::filesystem::path& pwd)
+		-> InitializationError {
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		const Config conf(pwd / FilePaths::PLUSTOML);
+		const auto build_dir = pwd / conf.proj.buildDir;
+		namespace fs		 = std::filesystem;
+
+		// 1) fmt --check
+		{
+			std::vector<fs::path> files;
+			collect_fmt_files(pwd / FilePaths::SRC_PATH, files);
+			collect_fmt_files(pwd / FilePaths::INC_PATH, files);
+			collect_fmt_files(pwd / "tests", files);
+			collect_fmt_files(pwd / "test", files);
+			if(!files.empty()) {
+				std::cout << "==> fmt --check\n";
+				subprocess::CommandLine cmd{ "clang-format", "--dry-run", "--Werror" };
+				for(const auto& f: files) {
+					cmd.emplace_back(f.string());
+				}
+				try {
+					if(!subprocess_ok(subprocess::run(cmd))) {
+						plus::diag::error("formatting check failed.\n");
+						return InitializationError::COMMAND_FAILED;
+					}
+				} catch(const std::exception& ex) {
+					plus::diag::error_stream()
+						<< "failed to run clang-format: " << ex.what() << '\n';
+					return InitializationError::COMMAND_FAILED;
+				}
+			}
+		}
+
+		// 2) tidy (only if compile_commands.json exists)
+		{
+			const auto compile_json = build_dir / "compile_commands.json";
+			if(fs::exists(compile_json)) {
+				std::cout << "==> tidy\n";
+				std::vector<fs::path> files;
+				collect_project_cpp_sources(pwd / FilePaths::SRC_PATH, files);
+				collect_project_cpp_sources(pwd / "tests", files);
+				collect_project_cpp_sources(pwd / "test", files);
+				if(!files.empty()) {
+					subprocess::CommandLine cmd;
+					cmd.emplace_back("clang-tidy");
+					cmd.emplace_back("-p");
+					cmd.emplace_back(fs::absolute(build_dir).string());
+					for(const auto& fpath: files) {
+						cmd.emplace_back(fpath.string());
+					}
+					subprocess::RunOptions opts;
+					opts.cwd = pwd.string();
+					try {
+						if(!subprocess_ok(subprocess::run(cmd, opts))) {
+							plus::diag::error("clang-tidy reported diagnostics.\n");
+							return InitializationError::COMMAND_FAILED;
+						}
+					} catch(const std::exception& ex) {
+						plus::diag::error_stream()
+							<< "failed to run clang-tidy: " << ex.what() << '\n';
+						return InitializationError::COMMAND_FAILED;
+					}
+				}
+			} else {
+				std::cout << "==> tidy (skipped — no compile_commands.json)\n";
+			}
+		}
+
+		// 3) build
+		std::cout << "==> build\n";
+		if(!run_cmake_build(pwd, conf, Cli::BuildType::dbg)) {
+			plus::diag::error("build failed.\n");
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		// 4) test
+		std::cout << "==> test\n";
+		try {
+			const auto proc = subprocess::run(subprocess::CommandLine{ "ctest",
+				"--test-dir",
+				build_dir.string(),
+				"--output-on-failure",
+				"-C",
+				"Debug" });
+			if(!subprocess_ok(proc)) {
+				plus::diag::error("tests failed.\n");
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			plus::diag::error_stream() << "failed to run ctest: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		std::cout << "check: all gates passed.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_install(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		const Config conf(pwd / FilePaths::PLUSTOML);
+		const auto build_dir = (pwd / conf.proj.buildDir).string();
+		const auto t		 = cli.install.type.value_or(Cli::BuildType::dbg);
+
+		if(!run_cmake_build(pwd, conf, t)) {
+			plus::diag::error("build failed.\n");
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		subprocess::CommandLine cmd{ "cmake", "--install", build_dir };
+		if(cli.install.prefix.has_value() && !cli.install.prefix->empty()) {
+			cmd.emplace_back("--prefix");
+			cmd.emplace_back(*cli.install.prefix);
+		}
+		cmd.emplace_back("--config");
+		cmd.emplace_back(std::string(buildTypeConfig(t)));
+
+		try {
+			if(!subprocess_ok(subprocess::run(cmd))) {
+				plus::diag::error("cmake --install failed.\n");
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			plus::diag::error_stream() << "cmake --install failed: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Installed successfully.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_release(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		if(!run_cmake_build(pwd, conf, Cli::BuildType::rel, cli.release.jobs)) {
+			plus::diag::error("release build failed.\n");
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		if(conf.proj.kind == "bin" && cli.release.strip.value_or(false)) {
+			const auto exe = find_built_executable(pwd, conf);
+			if(exe.has_value()) {
+				try {
+					subprocess::run(subprocess::CommandLine{ "strip", exe->string() });
+					std::cout << "Stripped `" << exe->filename().string() << "`.\n";
+				} catch(const std::exception&) {
+					std::cout << "Warning: `strip` failed or not found; binary not stripped.\n";
+				}
+			}
+		}
+
+		if(conf.proj.kind == "bin") {
+			const auto exe = find_built_executable(pwd, conf);
+			if(exe.has_value()) {
+				namespace fs = std::filesystem;
+				std::error_code ec;
+				const auto sz = fs::file_size(*exe, ec);
+				if(!ec) {
+					std::cout << "Release binary: " << exe->filename().string() << " ("
+							  << (sz / 1024) << " KiB)\n";
+				}
+			}
+		}
+		std::cout << "Release build complete.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_bench(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		namespace fs = std::filesystem;
+		if(!fs::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		const Config conf(pwd / FilePaths::PLUSTOML);
+		const auto build_dir = pwd / conf.proj.buildDir;
+		const auto t		 = cli.bench.type.value_or(Cli::BuildType::rel);
+
+		if(!run_cmake_build(pwd, conf, t)) {
+			plus::diag::error("build failed.\n");
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		const std::string slug = utils::project_slug(conf.proj.name);
+		const fs::path candidates[] = {
+			build_dir / (slug + "_bench"),
+			build_dir / (slug + "_benchmarks"),
+			build_dir / "bench",
+			build_dir / "benchmarks",
+			build_dir / "Release" / (slug + "_bench"),
+			build_dir / "Release" / (slug + "_benchmarks"),
+		};
+
+		std::optional<fs::path> bench_exe;
+		for(const auto& p: candidates) {
+			if(fs::exists(p) && fs::is_regular_file(p)) {
+				bench_exe = p;
+				break;
+			}
+		}
+
+		if(!bench_exe.has_value()) {
+			plus::diag::error("no benchmark executable found. Add a benchmark target "
+							  "(e.g. `<project>_bench`) to your CMakeLists.txt.\n");
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		std::cout << "Running benchmarks: " << bench_exe->filename().string() << '\n';
+		try {
+			subprocess::RunOptions opts;
+			opts.cwd = pwd.string();
+			if(!subprocess_ok(subprocess::run(
+				   subprocess::CommandLine{ bench_exe->string() }, opts))) {
+				plus::diag::error("benchmarks failed.\n");
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			plus::diag::error_stream() << "failed to run benchmarks: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+		return InitializationError::OK;
+	}
+
+	auto snapshot_mtimes(const std::filesystem::path& base, const std::set<std::string>& exts)
+		-> std::unordered_map<std::string, std::filesystem::file_time_type> {
+		namespace fs = std::filesystem;
+		std::unordered_map<std::string, fs::file_time_type> result;
+		if(!fs::exists(base)) {
+			return result;
+		}
+		for(const auto& entry:
+			fs::recursive_directory_iterator(base, fs::directory_options::skip_permission_denied)) {
+			if(!entry.is_regular_file()) {
+				continue;
+			}
+			std::string ext = entry.path().extension().string();
+			std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+				return static_cast<char>(std::tolower(c));
+			});
+			if(exts.count(ext) != 0u) {
+				result[entry.path().string()] = entry.last_write_time();
+			}
+		}
+		return result;
+	}
+
+	auto run_command_watch(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		namespace fs = std::filesystem;
+		if(!fs::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		const Config conf(pwd / FilePaths::PLUSTOML);
+		const auto t	   = cli.watch.type.value_or(Cli::BuildType::dbg);
+		const int interval = cli.watch.interval.value_or(2);
+		static const std::set<std::string> watch_exts{
+			".cpp", ".cxx", ".cc", ".h", ".hpp", ".inl", ".cmake" };
+
+		std::cout << "Watching for changes (poll every " << interval << "s)... Ctrl+C to stop.\n";
+		auto prev_src = snapshot_mtimes(pwd / FilePaths::SRC_PATH, watch_exts);
+		auto prev_inc = snapshot_mtimes(pwd / FilePaths::INC_PATH, watch_exts);
+		auto prev_tst = snapshot_mtimes(pwd / "tests", watch_exts);
+
+		for(;;) {
+			std::this_thread::sleep_for(std::chrono::seconds(interval));
+			auto cur_src = snapshot_mtimes(pwd / FilePaths::SRC_PATH, watch_exts);
+			auto cur_inc = snapshot_mtimes(pwd / FilePaths::INC_PATH, watch_exts);
+			auto cur_tst = snapshot_mtimes(pwd / "tests", watch_exts);
+
+			bool changed = (cur_src != prev_src || cur_inc != prev_inc || cur_tst != prev_tst);
+			if(!changed) {
+				continue;
+			}
+
+			std::cout << "\n--- Change detected, rebuilding ---\n";
+			if(run_cmake_build(pwd, conf, t, cli.watch.jobs)) {
+				std::cout << "--- Build succeeded ---\n";
+			} else {
+				std::cout << "--- Build FAILED ---\n";
+			}
+
+			prev_src = std::move(cur_src);
+			prev_inc = std::move(cur_inc);
+			prev_tst = std::move(cur_tst);
+		}
+	}
+
+	auto run_command_update(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		namespace fs = std::filesystem;
+		if(!fs::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		if(conf.conan.requires.empty()) {
+			std::cout << "No Conan requirements to update.\n";
+			return InitializationError::OK;
+		}
+
+		write_conanfile_txt(pwd, conf);
+
+		const auto t = cli.update.type.value_or(Cli::BuildType::dbg);
+		const std::string bt(buildTypeConfig(t));
+		subprocess::RunOptions opts;
+		opts.cwd = pwd.string();
+
+		try {
+			const auto proc = subprocess::run(
+				subprocess::CommandLine{ "conan",
+					"install",
+					".",
+					"-s",
+					std::string("build_type=") + bt,
+					"--build=missing",
+					"--update",
+					std::string("--output-folder=") + conf.conan.output_folder },
+				opts);
+			if(!subprocess_ok(proc)) {
+				plus::diag::error("conan install --update failed.\n");
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			plus::diag::error_stream() << "conan update failed: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		std::cout << "Dependencies updated.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_version(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		namespace fs = std::filesystem;
+		if(!fs::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		const std::string& part = cli.version.part;
+
+		unsigned major = 0, minor = 0, patch = 0;
+		std::istringstream iss(conf.proj.version);
+		char dot = 0;
+		iss >> major >> dot >> minor >> dot >> patch;
+
+		if(part == "major") {
+			++major;
+			minor = 0;
+			patch = 0;
+		} else if(part == "minor") {
+			++minor;
+			patch = 0;
+		} else if(part == "patch") {
+			++patch;
+		} else {
+			plus::diag::error("expected `major`, `minor`, or `patch`.\n");
+			return InitializationError::INVALID_ARG;
+		}
+
+		conf.proj.version =
+			std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+		if(!save_plus_toml(pwd, conf)) {
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Version bumped to " << conf.proj.version << "\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_config_set(const Cli& cli, const std::filesystem::path& pwd)
+		-> InitializationError {
+		namespace fs = std::filesystem;
+		if(!fs::exists(pwd / FilePaths::PLUSTOML)) {
+			plus::diag::error("`plus.toml` not found.\n");
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		const std::string& key = cli.config.key;
+		const std::string& val = cli.config.value;
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+
+		if(key == "name") {
+			conf.proj.name = val;
+		} else if(key == "version") {
+			conf.proj.version = val;
+		} else if(key == "cpp_std") {
+			conf.proj.cpp_std = val;
+		} else if(key == "kind") {
+			if(val != "bin" && val != "lib") {
+				plus::diag::error("kind must be `bin` or `lib`.\n");
+				return InitializationError::INVALID_ARG;
+			}
+			conf.proj.kind = val;
+		} else if(key == "buildDir") {
+			conf.proj.buildDir = val;
+		} else if(key == "repo") {
+			conf.proj.repo = val;
+		} else if(key == "license") {
+			conf.proj.license = val;
+		} else if(key == "author.name") {
+			conf.author.name = val;
+		} else if(key == "author.email") {
+			conf.author.email = val;
+		} else if(key == "conan.output_folder") {
+			conf.conan.output_folder = val;
+		} else {
+			plus::diag::error_stream() << "unknown config key `" << key << "`.\n";
+			return InitializationError::INVALID_ARG;
+		}
+
+		if(!save_plus_toml(pwd, conf)) {
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Set `" << key << "` = `" << val << "` in plus.toml.\n";
+		return InitializationError::OK;
+	}
+
+	auto run_command_completions(const Cli& cli) -> InitializationError {
+		const std::string& sh = cli.completions.shell;
+		if(sh == "bash") {
+			std::cout << R"(# plus bash completions
+_plus() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local cmds="init new build setup run clean fmt tidy show test deps add remove check install release bench watch update version config completions help"
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "${cmds}" -- "${cur}") )
+    fi
+}
+complete -F _plus plus
+)";
+		} else if(sh == "zsh") {
+			std::cout << R"(#compdef plus
+_plus() {
+    local -a commands=(
+        'init:Initialize a project in the current directory'
+        'new:Create a new project'
+        'build:Build the project'
+        'setup:Configure CMake'
+        'run:Build and run'
+        'clean:Remove build directory'
+        'fmt:Format source files'
+        'tidy:Run clang-tidy'
+        'show:Show manifest info'
+        'test:Run tests'
+        'deps:Manage Conan dependencies'
+        'add:Add a Conan requirement'
+        'remove:Remove a Conan requirement'
+        'check:Run fmt+tidy+build+test'
+        'install:Install built artifacts'
+        'release:Release build'
+        'bench:Run benchmarks'
+        'watch:Watch and rebuild'
+        'update:Update dependencies'
+        'version:Bump version'
+        'config:Set config values'
+        'completions:Generate shell completions'
+    )
+    _describe 'command' commands
+}
+compdef _plus plus
+)";
+		} else if(sh == "fish") {
+			std::cout << R"(# plus fish completions
+set -l cmds init new build setup run clean fmt tidy show test deps add remove check install release bench watch update version config completions help
+complete -c plus -f
+for cmd in $cmds
+    complete -c plus -n "not __fish_seen_subcommand_from $cmds" -a "$cmd"
+end
+)";
+		} else {
+			plus::diag::error("supported shells: bash, zsh, fish.\n");
+			return InitializationError::INVALID_ARG;
+		}
 		return InitializationError::OK;
 	}
 
@@ -893,6 +1450,36 @@ auto initialize_and_run(const Cli& cli, std::filesystem::path& pwd, std::string&
 	}
 	if(cli.add.has_value()) {
 		return run_command_add(cli, pwd);
+	}
+	if(cli.remove.has_value()) {
+		return run_command_remove(cli, pwd);
+	}
+	if(cli.check.has_value()) {
+		return run_command_check(cli, pwd);
+	}
+	if(cli.install.has_value()) {
+		return run_command_install(cli, pwd);
+	}
+	if(cli.release.has_value()) {
+		return run_command_release(cli, pwd);
+	}
+	if(cli.bench.has_value()) {
+		return run_command_bench(cli, pwd);
+	}
+	if(cli.watch.has_value()) {
+		return run_command_watch(cli, pwd);
+	}
+	if(cli.update.has_value()) {
+		return run_command_update(cli, pwd);
+	}
+	if(cli.version.has_value()) {
+		return run_command_version(cli, pwd);
+	}
+	if(cli.config.has_value()) {
+		return run_command_config_set(cli, pwd);
+	}
+	if(cli.completions.has_value()) {
+		return run_command_completions(cli);
 	}
 	if(cli.setup.has_value()) {
 		return run_command_setup(cli, pwd);

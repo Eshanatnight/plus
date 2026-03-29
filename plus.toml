@@ -5,6 +5,7 @@ cpp_std = "17"
 kind = "bin"
 buildDir = "build"
 repo = "https://github.com/Eshanatnight/plus"
+cmakeDefines = []
 
 [author]
 name = "Eshanatnight"

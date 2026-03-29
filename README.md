@@ -127,8 +127,24 @@ plus tidy --fix        # apply fix-its where clang-tidy supports them
 | `plus tidy --fix` | Same, applying supported fix-its |
 | `plus show` | Print manifest summary; `plus show --verbose` lists Conan requires and author |
 | `plus add <ref>` | Append a Conan requirement (e.g. `fmt/10.2.1`) to `plus.toml` and refresh `conanfile.txt` |
+| `plus remove <ref>` | Remove a Conan requirement from `plus.toml` and refresh `conanfile.txt` |
 | `plus deps` | Write `conanfile.txt` and run `conan install` |
 | `plus deps --sync-only` | Only regenerate `conanfile.txt` |
+| `plus deps --list` | List Conan requirements from `plus.toml` |
+| `plus deps --tree` | Show resolved dependency graph via `conan graph info` |
+| `plus check` | Run **fmt --check** + **tidy** + **build** + **test** in sequence (CI gate) |
+| `plus install` | Build then `cmake --install` |
+| `plus install --prefix ~/.local` | Install to a custom prefix |
+| `plus release` | Shorthand for `plus build --type rel` |
+| `plus release --strip` | Release build + strip the binary |
+| `plus release -j 8` | Parallel release build |
+| `plus bench` | Build (Release by default) and run benchmark executable (`<project>_bench`) |
+| `plus watch` | Poll `src/`, `include/`, `tests/` and rebuild on changes |
+| `plus watch --interval 5 -j 4` | Custom poll interval (seconds) and parallelism |
+| `plus update` | Run `conan install --update` to bump dependencies to latest compatible |
+| `plus version <part>` | Bump version in `plus.toml` (`major`, `minor`, or `patch`) |
+| `plus config <key> <value>` | Set a field in `plus.toml` (e.g. `name`, `cpp_std`, `author.name`) |
+| `plus completions <shell>` | Generate shell completions (`bash`, `zsh`, `fish`) |
 | `plus help` | CLI help |
 
 ### Manifest and Conan
@@ -154,8 +170,13 @@ plus tidy --fix        # apply fix-its where clang-tidy supports them
 - [x] `plus new` / `plus init` (binary or library), optional `--no-git`
 - [x] Git init via **libgit2** (unless `--no-git`)
 - [x] CMake scaffold (C++ standard from manifest)
-- [x] Conan: `plus add`, `plus deps`, `plus setup --conan`, generated `conanfile.txt` and `configure.sh`
+- [x] Conan: `plus add`, `plus remove`, `plus deps` (with `--list`, `--tree`), `plus setup --conan`, generated `conanfile.txt` and `configure.sh`
 - [x] `plus setup`, `plus build`, `plus run`, `plus clean`, `plus test`, `plus fmt`, `plus tidy`, `plus show`
+- [x] `plus check` (CI gate: fmt + tidy + build + test)
+- [x] `plus install`, `plus release` (with `--strip`)
+- [x] `plus bench` (benchmark runner), `plus watch` (poll-based rebuild)
+- [x] `plus update` (Conan `--update`), `plus version` (semver bump), `plus config` (edit `plus.toml`)
+- [x] Shell completions: `plus completions bash|zsh|fish`
 - [x] Optional **clang-tidy** during build (`PLUS_ENABLE_CLANG_TIDY`) and **`compile_commands.json`** export
 
 ## Libraries (plus binary)

@@ -43,10 +43,19 @@ struct Cli {
 		std::optional<BuildType> type = BuildType::dbg;
 		/** Only regenerate `conanfile.txt`; do not run Conan. */
 		std::optional<bool> sync_only = false;
+		/** Print installed dependency list. */
+		std::optional<bool> list = false;
+		/** Print resolved dependency graph. */
+		std::optional<bool> tree = false;
 	};
 
 	struct Add : structopt::sub_command {
 		/** Conan reference, e.g. `fmt/10.2.1` */
+		std::string package_ref;
+	};
+
+	struct Remove : structopt::sub_command {
+		/** Conan reference to remove, e.g. `fmt/10.2.1` */
 		std::string package_ref;
 	};
 
@@ -79,6 +88,50 @@ struct Cli {
 		std::optional<std::string> generator;
 	};
 
+	struct Check : structopt::sub_command {
+		std::optional<bool> verbose = false;
+	};
+
+	struct Install : structopt::sub_command {
+		std::optional<std::string> prefix;
+		std::optional<BuildType> type = BuildType::dbg;
+	};
+
+	struct Release : structopt::sub_command {
+		std::optional<bool> strip = false;
+		std::optional<int> jobs;
+	};
+
+	struct Bench : structopt::sub_command {
+		std::optional<BuildType> type = BuildType::dbg;
+	};
+
+	struct Watch : structopt::sub_command {
+		std::optional<BuildType> type = BuildType::dbg;
+		std::optional<int> jobs;
+		/** Poll interval in seconds. */
+		std::optional<int> interval;
+	};
+
+	struct Update : structopt::sub_command {
+		std::optional<BuildType> type = BuildType::dbg;
+	};
+
+	struct Version : structopt::sub_command {
+		/** Semver part to bump: major, minor, patch */
+		std::string part;
+	};
+
+	struct ConfigSet : structopt::sub_command {
+		std::string key;
+		std::string value;
+	};
+
+	struct Completions : structopt::sub_command {
+		/** Shell name: bash, zsh, fish */
+		std::string shell;
+	};
+
 	// sub commands
 	Init init;
 	New new_;
@@ -92,6 +145,16 @@ struct Cli {
 	Test test;
 	Deps deps;
 	Add add;
+	Remove remove;
+	Check check;
+	Install install;
+	Release release;
+	Bench bench;
+	Watch watch;
+	Update update;
+	Version version;
+	ConfigSet config;
+	Completions completions;
 };
 
 static constexpr auto TypeToString(Cli::Type type) -> std::string_view {
@@ -148,8 +211,9 @@ static constexpr auto buildTypeConfig(Cli::BuildType t) -> std::string_view {
 STRUCTOPT(Cli::Init, kind, no_git);
 STRUCTOPT(Cli::Build, type, jobs);
 STRUCTOPT(Cli::Setup, type, conan, generator);
-STRUCTOPT(Cli::Deps, type, sync_only);
+STRUCTOPT(Cli::Deps, type, sync_only, list, tree);
 STRUCTOPT(Cli::Add, package_ref);
+STRUCTOPT(Cli::Remove, package_ref);
 STRUCTOPT(Cli::New, projectName, kind, no_git);
 STRUCTOPT(Cli::Run, type, generator, jobs);
 STRUCTOPT(Cli::Clean, quiet);
@@ -157,4 +221,13 @@ STRUCTOPT(Cli::Fmt, check);
 STRUCTOPT(Cli::Tidy, fix);
 STRUCTOPT(Cli::Show, verbose);
 STRUCTOPT(Cli::Test, type, generator);
-STRUCTOPT(Cli, init, new_, build, setup, run, clean, fmt, tidy, show, test, deps, add);
+STRUCTOPT(Cli::Check, verbose);
+STRUCTOPT(Cli::Install, prefix, type);
+STRUCTOPT(Cli::Release, strip, jobs);
+STRUCTOPT(Cli::Bench, type);
+STRUCTOPT(Cli::Watch, type, jobs, interval);
+STRUCTOPT(Cli::Update, type);
+STRUCTOPT(Cli::Version, part);
+STRUCTOPT(Cli::ConfigSet, key, value);
+STRUCTOPT(Cli::Completions, shell);
+STRUCTOPT(Cli, init, new_, build, setup, run, clean, fmt, tidy, show, test, deps, add, remove, check, install, release, bench, watch, update, version, config, completions);
