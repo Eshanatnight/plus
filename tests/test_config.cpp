@@ -107,7 +107,9 @@ requires = [ "fmt/10.2.0", "zlib/1.3.1" ]
 
 TEST_CASE("toTomlTable includes conan section", "[config]") {
 	Config c("demo", "bin", "build");
-	c.conan.requires.push_back("catch2/3.5.0");
+	c.conan.
+		requires
+		.push_back("catch2/3.5.0");
 	c.conan.output_folder = "deps";
 	const toml::table tbl = c.toTomlTable();
 	REQUIRE(tbl["conan"]["output_folder"].value_or(std::string{}) == "deps");

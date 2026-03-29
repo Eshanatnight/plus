@@ -1,4 +1,5 @@
 #include "git.h"
+
 #include "plus/diagnostics.hpp"
 
 #include <git2/global.h>

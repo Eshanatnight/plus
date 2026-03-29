@@ -11,12 +11,12 @@ struct Cli {
 		lib
 	};
 	struct Init : structopt::sub_command {
-		std::optional<Type> kind	  = Type::bin;
+		std::optional<Type> kind   = Type::bin;
 		std::optional<bool> no_git = false;
 	};
 	struct New : structopt::sub_command {
-		std::string			projectName;
-		std::optional<Type> kind	  = Type::bin;
+		std::string projectName;
+		std::optional<Type> kind   = Type::bin;
 		std::optional<bool> no_git = false;
 	};
 

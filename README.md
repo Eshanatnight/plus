@@ -1,102 +1,127 @@
 # Plus
 
-A Small Utility App For C/CPP and CMake users.
+**Plus** is a small CLI for C++ projects: scaffold layouts and a `plus.toml` manifest (similar in spirit to Rust’s Cargo), drive **CMake**, and optionally manage dependencies with **Conan 2**.
 
 ## Prerequisites
 
-- [vcpkg](https://github.com/microsoft/vcpkg)
-- [cmake](https://cmake.org/)
-- [premake](https://premake.github.io/)
+- **CMake** 3.10+
+- **C++17** toolchain
+- To build **plus** itself, either:
+  - **[Conan 2](https://docs.conan.io/)** (recommended for this repo — see *Building with Conan*), or
+  - **[vcpkg](https://github.com/microsoft/vcpkg)** with `libgit2` and `tomlplusplus`
+- **Conan 2** (optional) — only needed if you use `plus deps`, `plus setup --conan`, or generated `configure.sh` in your own projects
+- **clang-format** (optional) — for `plus fmt`
+- **Git** — expected on `PATH` when creating projects without `--no-git`
 
-## Building with cmake and vcpkg
+## Building with Conan (recommended)
 
-```terminal
-    git clone https://github.com/Eshanatnight/plus.git
-```
-
-```terminal
-    cd plus
-```
-
-```terminal
-    mkdir build
-```
-
-```terminal
-    cd build
-```
-
-```terminal
-    cmake -DCMAKE_TOOLCHAIN_FILE="<path>/<to>/<vcpkg>/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release -G<generator> -S.. -B .
-```
-
-### If MSVC
-
-```terminal
-    cmake --build . --config Release
-```
-
-## Building with Premake
-
-Download the premake5 executable. Then use
+From the repository root:
 
 ```bash
-    premake5 <generator>
+./configure.sh dbg   # or: rel
 ```
 
-### Using Other Compilers to Build
+This runs `conan install` into `deps/` and configures CMake with the generated toolchain (see `configure.sh`).
 
-As of the current MSVC `26.05.22`,
-Currently for full support for `std::ranges` we need to use `/std:c++latest` which is directly not accessible from cmake.
+Then:
 
-For MSVC we have to set the standard to 23. (This is reflected in the CMakeLists.txt file)
-Other compilers might need to modify the CMakeLists.txt file to set the standard to the latest or even the latest c++20.
+```bash
+cmake --build build
+```
 
-More Information [here](https://stackoverflow.com/questions/64889383/how-to-enable-stdclatest-in-cmake)
+The resulting binary is `build/plus` (or under your generator’s output directory).
 
-----
+## Building with CMake and vcpkg
+
+If you prefer vcpkg for **plus**’s own dependencies:
+
+```bash
+git clone https://github.com/Eshanatnight/plus.git
+cd plus
+mkdir build && cd build
+cmake -DCMAKE_TOOLCHAIN_FILE="<path/to/vcpkg>/scripts/buildsystems/vcpkg.cmake" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -G "<generator>" -S .. -B .
+cmake --build . --config Release   # MSVC: add --config Release
+```
 
 ## Testing
 
-Unit tests use [Catch2](https://github.com/catchorg/Catch2) (fetched by CMake when `BUILD_TESTING` is on, which is the default). After configuring and building:
+Unit tests use [Catch2](https://github.com/catchorg/Catch2) (fetched by CMake when `BUILD_TESTING` is on, which is the default):
 
 ```bash
 cd build
 ctest -L plus --output-on-failure
 ```
 
-Running plain `ctest` may also execute tests from dependencies (for example the `subprocess` library); the `plus` label restricts runs to this project’s cases. To skip tests and the Catch2 download, configure with `-DBUILD_TESTING=OFF`.
+Use **`ctest -L plus`** so only **plus** tests run; a plain `ctest` may also run tests from dependencies (e.g. **subprocess**). To skip tests and the Catch2 fetch:
 
-----
+```bash
+cmake -DBUILD_TESTING=OFF ...
+```
 
-## Useage and Keyword Lookup
+---
 
-|Keyword|Command|
-|---|---|
-|`plus init`|Initialize a project repository in the current path|
-|`plus new "Project_Name"`|Create a new Project in a new directory in the curent path|
-|`plus add fmt/10.2.1`|Append a Conan requirement to `plus.toml` and refresh `conanfile.txt`|
-|`plus deps`|Run `conan install` from `plus.toml` (writes `conanfile.txt` first)|
-|`plus deps --sync-only`|Only regenerate `conanfile.txt` (no network)|
-|`plus setup --conan`|Conan install + CMake configure using the Conan toolchain|
-|`plus help`|Show this help message|
+## Usage
 
-New projects include `[conan]` in `plus.toml` (empty `requires` by default), `conanfile.txt`, and `configure.sh` (same flow as this repo: Conan 2 + CMakeDeps + `cmake_layout`). Set `[conan].output_folder` if you want something other than `deps`.
+| Command | Description |
+|--------|-------------|
+| `plus new <name>` | Create a new project in `./<name>/` |
+| `plus new <name> --lib` | Same, as a static library layout (`include/`, `src/`) |
+| `plus new <name> --no-git` | Skip initializing a Git repository |
+| `plus init` | Scaffold in the current directory |
+| `plus init --lib` / `--no-git` | Library template and/or no Git |
+| `plus setup` | Configure CMake (`cmake -B <buildDir> -S .`) |
+| `plus setup --conan` | `conan install` then CMake with Conan’s toolchain |
+| `plus setup --type rel` | Use Release for Conan/CMake where applicable |
+| `plus build` / `plus build --type rel` | `cmake --build` |
+| `plus run` | Configure if needed, build, run the binary (`bin` projects only) |
+| `plus clean` | Remove the configured build directory |
+| `plus test` | Run **ctest** in the build tree |
+| `plus fmt` | Run **clang-format** on `src/`, `include/`, `tests/`, `test/` |
+| `plus fmt --check` | Check formatting only (`--dry-run --Werror`) |
+| `plus show` | Print manifest summary; `plus show --verbose` lists Conan requires and author |
+| `plus add <ref>` | Append a Conan requirement (e.g. `fmt/10.2.1`) to `plus.toml` and refresh `conanfile.txt` |
+| `plus deps` | Write `conanfile.txt` and run `conan install` |
+| `plus deps --sync-only` | Only regenerate `conanfile.txt` |
+| `plus help` | CLI help |
+
+### Manifest and Conan
+
+- **`plus.toml`** holds project metadata and, under **`[conan]`**, **`requires`** and **`output_folder`** (default `deps`).
+- New projects include **`conanfile.txt`** (CMakeDeps, CMakeToolchain, `cmake_layout`) and **`configure.sh`** for the same Conan → CMake flow as this repository.
+- After `plus deps` or `plus setup --conan`, add **`find_package`** / **`target_link_libraries`** in **`CMakeLists.txt`** for each dependency as usual for **CMakeDeps**.
+
+### Layout (scaffolded project)
+
+- `plus.toml` — manifest  
+- `src/` — sources (`main.cpp` or library `.cpp`)  
+- `include/<slug>/` — public headers (library projects)  
+- `build/` — CMake build tree (ignored by default)  
+- `conanfile.txt`, `configure.sh` — Conan integration  
+- `README.md`, `LICENSE`, `.gitignore`, `.gitattributes`
+
+---
 
 ## Features
 
-- [x] Initialize a git repository
-- [x] add a .gitignore file
-- [x] add a .gitattribute file
-- [x] add a CMakeLists.txt file
-- [x] create an output directory
+- [x] `plus.toml` project manifest (name, version, `cpp_std`, `kind`, `buildDir`, `cmakeDefines`, author, Conan block)
+- [x] `plus new` / `plus init` (binary or library), optional `--no-git`
+- [x] Git init via **libgit2** (unless `--no-git`)
+- [x] CMake scaffold (C++ standard from manifest)
+- [x] Conan: `plus add`, `plus deps`, `plus setup --conan`, generated `conanfile.txt` and `configure.sh`
+- [x] `plus setup`, `plus build`, `plus run`, `plus clean`, `plus test`, `plus fmt`, `plus show`
 
-## Libs
+## Libraries (plus binary)
 
-- [libfmt](https://github.com/fmtlib/fmt)
+| Library | Role |
+|--------|------|
+| [libgit2](https://libgit2.org) | Git repository initialization |
+| [toml++](https://github.com/marzer/tomlplusplus) | Parse and emit `plus.toml` |
+| [structopt](https://github.com/Eshanatnight/structopt) | CLI parsing (FetchContent) |
+| [subprocess](https://github.com/Eshanatnight/subprocess) | Running cmake, conan, ctest, etc. (FetchContent) |
+| [Catch2](https://github.com/catchorg/Catch2) | Unit tests only (FetchContent, when `BUILD_TESTING` is on) |
 
-- [libgit2](https://libgit2.org)
+## See also
 
-## Todo
-
-- [ ] Add [Ranges-v3](https://github.com/ericniebler/range-v3) for Clang/GNU Compilers.
+- [CMake `CMAKE_CXX_STANDARD` / MSVC “latest”](https://stackoverflow.com/questions/64889383/how-to-enable-stdclatest-in-cmake) — if you need a newer language mode than the scaffold’s `cpp_std` field.

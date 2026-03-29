@@ -10,4 +10,4 @@ namespace utils {
 	auto project_slug(std::string_view name) -> std::string;
 	/** Valid C++ namespace identifier derived from the project name. */
 	auto cpp_namespace_ident(std::string_view name) -> std::string;
-}  // namespace utils
+} // namespace utils

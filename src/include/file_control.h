@@ -27,8 +27,8 @@ enum class InitializationError {
 	OK,
 };
 
-[[nodiscard]] auto initialize_and_run(const Cli& cli, std::filesystem::path& pwd, std::string& appName)
-	-> InitializationError;
+[[nodiscard]] auto initialize_and_run(
+	const Cli& cli, std::filesystem::path& pwd, std::string& appName) -> InitializationError;
 auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
 	-> std::filesystem::path;
 

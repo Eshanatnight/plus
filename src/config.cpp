@@ -101,9 +101,9 @@ auto Config::toTomlTable() const -> toml::table {
 			{ "kind", proj.kind },
 			{ "buildDir", proj.buildDir },
 			{ "repo", proj.repo },
-			{ "cmakeDefines", cmakeDefs } }												},
-		{  "author", toml::table{ { "name", author.name }, { "email", author.email } } },
-		{ "conan",
+			{ "cmakeDefines", cmakeDefs } }												  },
+		{  "author",		toml::table{ { "name", author.name }, { "email", author.email } } },
+		{	  "conan",
 			toml::table{ { "requires", conanReq }, { "output_folder", conan.output_folder } } },
 	};
 
