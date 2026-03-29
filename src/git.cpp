@@ -1,28 +1,28 @@
 #include "git.h"
+#include "plus/diagnostics.hpp"
 
 #include <git2/global.h>
 #include <git2/repository.h>
 #include <git2/types.h>
 #include <iostream>
 
-auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -> void {
+auto initialize_git_repository(const std::filesystem::path& path, bool make_path) -> void {
 
 	git_libgit2_init();
 
-	git_repository* repo			 = nullptr;
-	git_repository_init_options opts = GIT_REPOSITORY_INIT_OPTIONS_INIT;
+	git_repository* repo = nullptr;
+	git_repository_init_options opts{};
+	opts.version = GIT_REPOSITORY_INIT_OPTIONS_VERSION;
 
-	if(makePath) {
+	if(make_path) {
 		opts.flags |= GIT_REPOSITORY_INIT_MKPATH; /* mkdir as needed to create repo */
 	}
 
 	int error = git_repository_init_ext(&repo, path.c_str(), &opts);
 
 	if(error != 0) {
-		std::cerr << "Failed to init Git Repo at Path: " << path.c_str() << std::endl;
-		std::cerr << "Error Code: " << error << std::endl;
-
-		// Exit out as this is unrecoverable
+		plus::diag::error_stream() << "could not initialize git repository at `" << path.string()
+								   << "` (libgit2 error " << error << ").\n";
 		std::quick_exit(error);
 	}
 

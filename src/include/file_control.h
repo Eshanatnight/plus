@@ -27,7 +27,7 @@ enum class InitializationError {
 	OK,
 };
 
-auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName)
+[[nodiscard]] auto initialize_and_run(const Cli& cli, std::filesystem::path& pwd, std::string& appName)
 	-> InitializationError;
 auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
 	-> std::filesystem::path;
@@ -37,8 +37,7 @@ auto flushNewConfig(const Cli& cli,
 	const std::string& appName,
 	std::string_view packageType) -> bool;
 
-// NOLINTNEXTLINE
-auto _writeContent(
+auto write_scaffold_file(
 	const std::filesystem::path& basePath, InstPath instPath, std::string_view content) -> bool;
 
 auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void>;

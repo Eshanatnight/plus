@@ -1,3 +1,4 @@
+// plus — CLI entrypoint; logic lives in file_control and supporting units.
 #include "cli.h"
 #include "file_control.h"
 
@@ -14,7 +15,7 @@ auto main(int argc, char** argv) -> int {
 
 		std::filesystem::path pwd = std::filesystem::current_path();
 		std::string appName;
-		auto initialized = initializeAndRun(cli, pwd, appName);
+		auto initialized = initialize_and_run(cli, pwd, appName);
 
 		switch(initialized) {
 		case InitializationError::OK :

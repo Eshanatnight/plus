@@ -1,4 +1,5 @@
 #include "log.h"
+#include "plus/diagnostics.hpp"
 
 #include <algorithm>
 #include <config.h>
@@ -37,8 +38,6 @@ Config::Project::Project(const toml::table& tbl) {
 }
 
 Config::Author::Author(const toml::table& tbl) {
-	// sets a default value if the key is not found
-	// is that correct?
 	name  = tbl["author"]["name"].value_or("");
 	email = tbl["author"]["email"].value_or("");
 }
@@ -65,28 +64,12 @@ Config::Conan::Conan(const toml::table& tbl) {
 
 Config::Config(const std::filesystem::path& configPath) {
 
-	/**
-	 * should assert the file has the correct structure
-	 *	i dont want to deal with an exception here
-		[author]
-		email = ''
-		name = ''
-
-		[project]
-		buildDir = 'build'
-		kind = 'bin'
-		name = 'sss'
-		repo = ''
-		cmakeDefines=[]
-	 */
-
 	toml::table tbl;
 
 	try {
 		tbl = toml::parse_file(configPath.c_str());
 	} catch(const toml::parse_error& err) {
-		std::cerr << "Failed to parse plus.toml\n";
-		std::cerr << "[Error]: " << err << '\n';
+		plus::diag::error_stream() << "invalid plus.toml: " << err << '\n';
 		std::quick_exit(1);
 	}
 

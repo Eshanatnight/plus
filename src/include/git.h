@@ -2,4 +2,4 @@
 
 #include <filesystem>
 
-auto _initializGitRepo(const std::filesystem::path& path, const bool makePath) -> void;
+auto initialize_git_repository(const std::filesystem::path& path, bool make_path) -> void;

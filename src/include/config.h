@@ -16,7 +16,6 @@ struct Config {
 		std::vector<std::string> cmakeDefines;
 		Project() = default;
 		explicit Project(const toml::table& tbl);
-		// NOLINTNEXTLINE
 		Project(std::string name, std::string_view kind, std::string_view buildDir) :
 			name(std::move(name)),
 			version("0.1.0"),
