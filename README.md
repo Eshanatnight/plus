@@ -11,6 +11,7 @@
   - **[vcpkg](https://github.com/microsoft/vcpkg)** with `libgit2` and `tomlplusplus`
 - **Conan 2** (optional) — only needed if you use `plus deps`, `plus setup --conan`, or generated `configure.sh` in your own projects
 - **clang-format** (optional) — for `plus fmt`
+- **clang-tidy** (optional) — for `plus tidy` and the `PLUS_ENABLE_CLANG_TIDY` CMake option
 - **Git** — expected on `PATH` when creating projects without `--no-git`
 
 ## Building with Conan (recommended)
@@ -60,6 +61,26 @@ Use **`ctest -L plus`** so only **plus** tests run; a plain `ctest` may also run
 cmake -DBUILD_TESTING=OFF ...
 ```
 
+## clang-tidy (static analysis)
+
+This repository ships a root **`.clang-tidy`** configuration. CMake always sets **`CMAKE_EXPORT_COMPILE_COMMANDS=ON`**, so after configuring you get **`compile_commands.json`** in the build directory (with **Ninja** or **Unix Makefiles**; some multi-config generators omit it—use Ninja if `plus tidy` cannot find the database).
+
+**While compiling plus** (optional):
+
+```bash
+cmake -DPLUS_ENABLE_CLANG_TIDY=ON -B build -S .
+cmake --build build
+```
+
+**From the CLI** (in any plus project with `plus.toml`):
+
+```bash
+plus tidy              # clang-tidy on src/, tests/, test/
+plus tidy --fix        # apply fix-its where clang-tidy supports them
+```
+
+`plus tidy` uses **`-p <absolute path to build dir>`** from **`project.buildDir`** in `plus.toml` (default `build`). Ensure you have run **`plus setup`** (or CMake) at least once so **`compile_commands.json`** exists.
+
 ---
 
 ## Usage
@@ -80,6 +101,8 @@ cmake -DBUILD_TESTING=OFF ...
 | `plus test` | Run **ctest** in the build tree |
 | `plus fmt` | Run **clang-format** on `src/`, `include/`, `tests/`, `test/` |
 | `plus fmt --check` | Check formatting only (`--dry-run --Werror`) |
+| `plus tidy` | Run **clang-tidy** on `.cpp` files under `src/`, `tests/`, `test/` (requires `compile_commands.json`) |
+| `plus tidy --fix` | Same, applying supported fix-its |
 | `plus show` | Print manifest summary; `plus show --verbose` lists Conan requires and author |
 | `plus add <ref>` | Append a Conan requirement (e.g. `fmt/10.2.1`) to `plus.toml` and refresh `conanfile.txt` |
 | `plus deps` | Write `conanfile.txt` and run `conan install` |
@@ -110,7 +133,8 @@ cmake -DBUILD_TESTING=OFF ...
 - [x] Git init via **libgit2** (unless `--no-git`)
 - [x] CMake scaffold (C++ standard from manifest)
 - [x] Conan: `plus add`, `plus deps`, `plus setup --conan`, generated `conanfile.txt` and `configure.sh`
-- [x] `plus setup`, `plus build`, `plus run`, `plus clean`, `plus test`, `plus fmt`, `plus show`
+- [x] `plus setup`, `plus build`, `plus run`, `plus clean`, `plus test`, `plus fmt`, `plus tidy`, `plus show`
+- [x] Optional **clang-tidy** during build (`PLUS_ENABLE_CLANG_TIDY`) and **`compile_commands.json`** export
 
 ## Libraries (plus binary)
 

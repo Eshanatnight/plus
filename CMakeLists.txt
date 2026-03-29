@@ -5,6 +5,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
+# For clang-tidy, IDE integration, and `plus tidy -p <build>`
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+option(PLUS_ENABLE_CLANG_TIDY "Run clang-tidy when compiling plus (and plus_tests)" OFF)
 
 include(FetchContent)
 
@@ -64,6 +68,20 @@ target_include_directories(${PROJECT_NAME} PUBLIC ./src/include)
 
 target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplus subprocess)
 
+set(PLUS_CLANG_TIDY_CMD "")
+if(PLUS_ENABLE_CLANG_TIDY)
+  find_program(
+    CLANG_TIDY_EXECUTABLE
+    NAMES clang-tidy clang-tidy-20 clang-tidy-19 clang-tidy-18 clang-tidy-17 clang-tidy-16
+    DOC "Path to clang-tidy executable")
+  if(NOT CLANG_TIDY_EXECUTABLE)
+    message(FATAL_ERROR "PLUS_ENABLE_CLANG_TIDY is ON but clang-tidy was not found on PATH.")
+  endif()
+  # Semicolon-separated list for CMake's CXX_CLANG_TIDY property
+  set(PLUS_CLANG_TIDY_CMD "${CLANG_TIDY_EXECUTABLE};-extra-arg=-Wno-unknown-warning-option")
+  set_target_properties(${PROJECT_NAME} PROPERTIES CXX_CLANG_TIDY "${PLUS_CLANG_TIDY_CMD}")
+endif()
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   # add_definitions("-DDEBUG")
   target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG=1)
@@ -79,6 +97,9 @@ if(BUILD_TESTING)
   set_property(TARGET plus_tests PROPERTY CXX_STANDARD 17)
   target_include_directories(plus_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/include)
   target_link_libraries(plus_tests PRIVATE Catch2::Catch2WithMain tomlplusplus::tomlplusplus)
+  if(PLUS_CLANG_TIDY_CMD)
+    set_target_properties(plus_tests PROPERTIES CXX_CLANG_TIDY "${PLUS_CLANG_TIDY_CMD}")
+  endif()
   list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
   include(Catch)
   catch_discover_tests(plus_tests

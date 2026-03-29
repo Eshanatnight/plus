@@ -58,6 +58,11 @@ struct Cli {
 		std::optional<bool> check = false;
 	};
 
+	struct Tidy : structopt::sub_command {
+		/** Apply clang-tidy fix-its where supported (mutates sources). */
+		std::optional<bool> fix = false;
+	};
+
 	struct Show : structopt::sub_command {
 		std::optional<bool> verbose = false;
 	};
@@ -74,6 +79,7 @@ struct Cli {
 	Run run;
 	Clean clean;
 	Fmt fmt;
+	Tidy tidy;
 	Show show;
 	Test test;
 	Deps deps;
@@ -140,6 +146,7 @@ STRUCTOPT(Cli::New, projectName, kind, no_git);
 STRUCTOPT(Cli::Run, type);
 STRUCTOPT(Cli::Clean, quiet);
 STRUCTOPT(Cli::Fmt, check);
+STRUCTOPT(Cli::Tidy, fix);
 STRUCTOPT(Cli::Show, verbose);
 STRUCTOPT(Cli::Test, type);
-STRUCTOPT(Cli, init, new_, build, setup, run, clean, fmt, show, test, deps, add);
+STRUCTOPT(Cli, init, new_, build, setup, run, clean, fmt, tidy, show, test, deps, add);
