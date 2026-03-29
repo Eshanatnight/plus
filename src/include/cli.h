@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <structopt.hpp>
 
@@ -26,12 +27,16 @@ struct Cli {
 	};
 	struct Build : structopt::sub_command {
 		std::optional<BuildType> type = BuildType::dbg;
+		/** `cmake --build` parallelism (`-j`); omit for CMake default. */
+		std::optional<int> jobs;
 	};
 
 	struct Setup : structopt::sub_command {
 		std::optional<BuildType> type = BuildType::dbg;
 		/** Run `conan install` and configure CMake with Conan’s toolchain. */
 		std::optional<bool> conan = false;
+		/** CMake generator (`cmake -G …`); omit for CMake default. */
+		std::optional<std::string> generator;
 	};
 
 	struct Deps : structopt::sub_command {
@@ -47,6 +52,8 @@ struct Cli {
 
 	struct Run : structopt::sub_command {
 		std::optional<BuildType> type = BuildType::dbg;
+		std::optional<std::string> generator;
+		std::optional<int> jobs;
 	};
 
 	struct Clean : structopt::sub_command {
@@ -69,6 +76,7 @@ struct Cli {
 
 	struct Test : structopt::sub_command {
 		std::optional<BuildType> type = BuildType::dbg;
+		std::optional<std::string> generator;
 	};
 
 	// sub commands
@@ -138,15 +146,15 @@ static constexpr auto buildTypeConfig(Cli::BuildType t) -> std::string_view {
 }
 
 STRUCTOPT(Cli::Init, kind, no_git);
-STRUCTOPT(Cli::Build, type);
-STRUCTOPT(Cli::Setup, type, conan);
+STRUCTOPT(Cli::Build, type, jobs);
+STRUCTOPT(Cli::Setup, type, conan, generator);
 STRUCTOPT(Cli::Deps, type, sync_only);
 STRUCTOPT(Cli::Add, package_ref);
 STRUCTOPT(Cli::New, projectName, kind, no_git);
-STRUCTOPT(Cli::Run, type);
+STRUCTOPT(Cli::Run, type, generator, jobs);
 STRUCTOPT(Cli::Clean, quiet);
 STRUCTOPT(Cli::Fmt, check);
 STRUCTOPT(Cli::Tidy, fix);
 STRUCTOPT(Cli::Show, verbose);
-STRUCTOPT(Cli::Test, type);
+STRUCTOPT(Cli::Test, type, generator);
 STRUCTOPT(Cli, init, new_, build, setup, run, clean, fmt, tidy, show, test, deps, add);

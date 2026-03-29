@@ -22,6 +22,7 @@
 #include <iostream>
 #include <optional>
 #include <ostream>
+#include <system_error>
 #include <set>
 #include <string>
 #include <string_view>
@@ -153,30 +154,47 @@ SOFTWARE.
 
 	auto run_cmake_configure(const std::filesystem::path& pwd,
 		const Config& conf,
-		const std::optional<std::filesystem::path>& toolchain_file = std::nullopt) -> bool {
-		namespace fs		= std::filesystem;
+		std::optional<std::filesystem::path> toolchain_file = std::nullopt,
+		std::optional<Cli::BuildType> build_type		 = std::nullopt,
+		std::optional<std::string> cmake_generator		 = std::nullopt) -> bool {
+		namespace fs = std::filesystem;
 		const auto buildDir = pwd / conf.proj.buildDir;
 		fs::create_directories(buildDir);
-		std::string defs;
 
-		std::for_each(conf.proj.cmakeDefines.begin(),
-			conf.proj.cmakeDefines.end(),
-			[&defs](const auto& elem) {
-				defs += "-D";
-				defs += elem;
-				defs += ' ';
-			});
+		// Stale CMakeCache from a non-Conan configure causes CMake to ignore a new
+		// CMAKE_TOOLCHAIN_FILE (warning: "Manually-specified variables were not used").
+		if(toolchain_file.has_value() && !toolchain_file->empty()) {
+			const auto cacheFile = buildDir / "CMakeCache.txt";
+			if(fs::is_regular_file(cacheFile)) {
+				std::error_code ec;
+				fs::remove(cacheFile, ec);
+			}
+		}
 
 		subprocess::CommandLine cmd{ "cmake", "-B", buildDir.string(), "-S", pwd.string() };
+		if(cmake_generator.has_value() && !cmake_generator.value().empty()) {
+			cmd.emplace_back("-G");
+			cmd.emplace_back(cmake_generator.value());
+		}
 		if(toolchain_file.has_value() && !toolchain_file->empty()) {
 			const auto absTc = fs::absolute(*toolchain_file);
 			cmd.emplace_back(std::string("-DCMAKE_TOOLCHAIN_FILE=") + absTc.string());
-		}
-		if(!defs.empty()) {
-			cmd.emplace_back(defs);
+			const Cli::BuildType bt = build_type.value_or(Cli::BuildType::dbg);
+			cmd.emplace_back(std::string("-DCMAKE_BUILD_TYPE=") + std::string(buildTypeConfig(bt)));
+		} else if(build_type.has_value()) {
+			cmd.emplace_back(std::string("-DCMAKE_BUILD_TYPE=") +
+							 std::string(buildTypeConfig(*build_type)));
 		}
 
-		return static_cast<bool>(subprocess::run(cmd));
+		for(const auto& elem: conf.proj.cmakeDefines) {
+			if(!elem.empty()) {
+				cmd.emplace_back(std::string("-D") + elem);
+			}
+		}
+
+		subprocess::RunOptions opts;
+		opts.cwd = pwd.string();
+		return static_cast<bool>(subprocess::run(cmd, opts));
 	}
 
 	auto write_conanfile_txt(const std::filesystem::path& project_root, const Config& conf)
@@ -249,6 +267,7 @@ SOFTWARE.
 		s += "if [[ \"${1:-}\" != \"dbg\" && \"${1:-}\" != \"rel\" ]]; then\n";
 		s += "  echo \"Usage: ./configure.sh <dbg|rel>\" >&2\n  exit 1\nfi\n";
 		s += "case \"$1\" in dbg) BT=Debug ;; rel) BT=Release ;; esac\n";
+		s += "shift\n";
 		s += "mkdir -p build\n";
 		s += "echo \"Running Conan...\"\n";
 		s +=
@@ -261,12 +280,18 @@ SOFTWARE.
 		return s;
 	}
 
-	auto run_cmake_build(const std::filesystem::path& pwd, const Config& conf, Cli::BuildType t)
-		-> bool {
+	auto run_cmake_build(const std::filesystem::path& pwd,
+		const Config& conf,
+		Cli::BuildType t,
+		std::optional<int> jobs = std::nullopt) -> bool {
 		const auto buildDir = (pwd / conf.proj.buildDir).string();
 		const std::string cfg(buildTypeConfig(t));
-		const auto process = subprocess::run(
-			subprocess::CommandLine{ "cmake", "--build", buildDir, "--config", cfg });
+		subprocess::CommandLine cmd{ "cmake", "--build", buildDir, "--config", cfg };
+		if(jobs.has_value() && *jobs > 0) {
+			cmd.emplace_back("-j");
+			cmd.emplace_back(std::to_string(*jobs));
+		}
+		const auto process = subprocess::run(cmd);
 		return static_cast<bool>(process);
 	}
 
@@ -342,20 +367,64 @@ SOFTWARE.
 		}
 	}
 
-	void collect_cpp_sources(const std::filesystem::path& base, std::vector<std::filesystem::path>& out) {
+	auto escape_for_regex(std::string_view s) -> std::string {
+		static constexpr std::string_view specials = ".^$*+?()[]{}\\|";
+		std::string out;
+		out.reserve(s.size() + 8);
+		for(const unsigned char uc: s) {
+			const char c = static_cast<char>(uc);
+			if(specials.find(c) != std::string_view::npos) {
+				out.push_back('\\');
+			}
+			out.push_back(c);
+		}
+		return out;
+	}
+
+	/** `.cpp` files for clang-tidy: skips vendored trees (e.g. `src/vendor`, `third_party`). */
+	void collect_project_cpp_sources(const std::filesystem::path& base, std::vector<std::filesystem::path>& out) {
 		namespace fs = std::filesystem;
 		static const std::set<std::string> exts{ ".cpp", ".cxx", ".cc" };
+		static const std::set<std::string> skip_dir_lower{
+			"third_party",
+			"third-party",
+			"vendor",
+			"vendors",
+			"external",
+			"deps",
+			"_deps",
+			"vendored",
+			"upstream",
+			".git",
+		};
 
 		if(!fs::exists(base)) {
 			return;
 		}
 
-		for(const auto& entry:
-			fs::recursive_directory_iterator(base, fs::directory_options::skip_permission_denied)) {
-			if(!entry.is_regular_file()) {
+		std::error_code ec;
+		fs::path iter_root = fs::weakly_canonical(base, ec);
+		if(ec) {
+			iter_root = base;
+		}
+
+		for(fs::recursive_directory_iterator it(iter_root, fs::directory_options::skip_permission_denied);
+			it != fs::recursive_directory_iterator{};
+			++it) {
+			if(it->is_directory()) {
+				std::string dirname = it->path().filename().string();
+				std::transform(dirname.begin(), dirname.end(), dirname.begin(), [](unsigned char c) {
+					return static_cast<char>(std::tolower(c));
+				});
+				if(skip_dir_lower.count(dirname) != 0u) {
+					it.disable_recursion_pending();
+				}
 				continue;
 			}
-			const auto p	= entry.path();
+			if(!it->is_regular_file()) {
+				continue;
+			}
+			const auto p	= it->path();
 			std::string ext = p.extension().string();
 			std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
 				return static_cast<char>(std::tolower(c));
@@ -429,7 +498,7 @@ SOFTWARE.
 
 		const Config conf(pwd / FilePaths::PLUSTOML);
 		const auto t = cli.build.type.value_or(Cli::BuildType::dbg);
-		if(!run_cmake_build(pwd, conf, t)) {
+		if(!run_cmake_build(pwd, conf, t, cli.build.jobs)) {
 			plus::diag::error("build failed.\n");
 			return InitializationError::COMMAND_FAILED;
 		}
@@ -456,13 +525,14 @@ SOFTWARE.
 		const auto t = cli.run.type.value_or(Cli::BuildType::dbg);
 
 		if(!std::filesystem::exists(cmake_cache_path(pwd, conf))) {
-			if(!run_cmake_configure(pwd, conf)) {
+			if(!run_cmake_configure(pwd, conf, std::nullopt,
+					std::optional<Cli::BuildType>{ t }, cli.run.generator)) {
 				plus::diag::error("CMake configure failed.\n");
 				return InitializationError::COMMAND_FAILED;
 			}
 		}
 
-		if(!run_cmake_build(pwd, conf, t)) {
+		if(!run_cmake_build(pwd, conf, t, cli.run.jobs)) {
 			plus::diag::error("build failed.\n");
 			return InitializationError::COMMAND_FAILED;
 		}
@@ -565,9 +635,9 @@ SOFTWARE.
 		}
 
 		std::vector<fs::path> files;
-		collect_cpp_sources(pwd / FilePaths::SRC_PATH, files);
-		collect_cpp_sources(pwd / "tests", files);
-		collect_cpp_sources(pwd / "test", files);
+		collect_project_cpp_sources(pwd / FilePaths::SRC_PATH, files);
+		collect_project_cpp_sources(pwd / "tests", files);
+		collect_project_cpp_sources(pwd / "test", files);
 
 		if(files.empty()) {
 			plus::diag::error("no .cpp sources under src/, tests/, or test/.\n");
@@ -581,6 +651,18 @@ SOFTWARE.
 		}
 		cmd.emplace_back("-p");
 		cmd.emplace_back(build_dir.string());
+		// Only emit diagnostics for project headers under src/include/tests/test (not
+		// FetchContent/Conan paths like build/_deps/.../src/...).
+		{
+			std::error_code ec;
+			const fs::path root_abs = fs::weakly_canonical(pwd, ec);
+			if(!ec) {
+				std::string filter = "^";
+				filter += escape_for_regex(root_abs.string());
+				filter += R"((?:/|\\)(?:src|include|tests|test)(?:/|\\).*)";
+				cmd.emplace_back(std::string("--header-filter=") + filter);
+			}
+		}
 		for(const auto& fpath: files) {
 			cmd.emplace_back(fpath.string());
 		}
@@ -637,13 +719,15 @@ SOFTWARE.
 
 		Config conf(pwd / FilePaths::PLUSTOML);
 		const auto build_dir = pwd / conf.proj.buildDir;
+		const auto t		 = cli.test.type.value_or(Cli::BuildType::dbg);
 
 		if(!std::filesystem::exists(cmake_cache_path(pwd, conf))) {
 			if(!std::filesystem::exists(pwd / FilePaths::CMAKELISTS)) {
 				plus::diag::error("`CMakeLists.txt` not found.\n");
 				return InitializationError::CMAKELISTS_NOT_FOUND;
 			}
-			if(!run_cmake_configure(pwd, conf)) {
+			if(!run_cmake_configure(pwd, conf, std::nullopt,
+					std::optional<Cli::BuildType>{ t }, cli.test.generator)) {
 				plus::diag::error("CMake configure failed.\n");
 				return InitializationError::COMMAND_FAILED;
 			}
@@ -653,8 +737,6 @@ SOFTWARE.
 			plus::diag::error("build directory missing; run `plus build` first.\n");
 			return InitializationError::BUILD_DIR_DOES_NOT_EXIST;
 		}
-
-		const auto t = cli.test.type.value_or(Cli::BuildType::dbg);
 		const std::string cfg(buildTypeConfig(t));
 
 		try {
@@ -758,12 +840,15 @@ SOFTWARE.
 										   << "` (check `[conan].output_folder` in plus.toml).\n";
 				return InitializationError::COMMAND_FAILED;
 			}
-			if(!run_cmake_configure(pwd, conf, tc)) {
+			if(!run_cmake_configure(pwd, conf,
+					std::optional<std::filesystem::path>{ tc },
+					std::optional<Cli::BuildType>{ t }, cli.setup.generator)) {
 				plus::diag::error("CMake configure failed.\n");
 				return InitializationError::COMMAND_FAILED;
 			}
 		} else {
-			if(!run_cmake_configure(pwd, conf)) {
+			if(!run_cmake_configure(pwd, conf, std::nullopt,
+					std::optional<Cli::BuildType>{ t }, cli.setup.generator)) {
 				plus::diag::error("CMake configure failed.\n");
 				return InitializationError::COMMAND_FAILED;
 			}

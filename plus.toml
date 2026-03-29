@@ -1,0 +1,15 @@
+[project]
+name = "plus"
+version = "0.1.0"
+cpp_std = "17"
+kind = "bin"
+buildDir = "build"
+repo = "https://github.com/Eshanatnight/plus"
+
+[author]
+name = "Eshanatnight"
+email = ""
+
+[conan]
+requires = ["libgit2/1.8.1", "tomlplusplus/3.4.0"]
+output_folder = "deps"
