@@ -33,8 +33,18 @@ struct Config {
 		explicit Author(const toml::table& tbl);
 	};
 
+	/** Declares Conan 2 requirements; drives generated `conanfile.txt`. */
+	struct Conan {
+		std::vector<std::string> requires;
+		std::string				 output_folder = "deps";
+
+		Conan() = default;
+		explicit Conan(const toml::table& tbl);
+	};
+
 	Project proj;
 	Author author;
+	Conan  conan;
 
 public:
 

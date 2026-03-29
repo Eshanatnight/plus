@@ -14,6 +14,7 @@ enum class InstPath {
 	GITATTRIBUTES,
 	README,
 	LICENSE,
+	CONFIGURE_SH,
 };
 
 enum class InitializationError {
@@ -21,6 +22,7 @@ enum class InitializationError {
 	PLUS_TOML_NOT_FOUND,
 	CMAKELISTS_NOT_FOUND,
 	BUILD_DIR_DOES_NOT_EXIST,
+	COMMAND_FAILED,
 	UNKNOWN,
 	OK,
 };

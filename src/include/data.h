@@ -33,6 +33,7 @@ namespace FileContents {
 												  "[Bb][Ii][Nn]\n"
 												  "[Bb][Uu][Ii][Ll][Dd]\n"
 												  "[Oo][Uu][Tt]\n"
+												  "deps/\n"
 												  "\n"
 												  "[Oo][Bb][Jj]\n"
 												  "\n"
@@ -86,7 +87,8 @@ namespace FilePaths {
 	static constexpr auto GITATTRIBUTES = ".gitattributes"sv;
 	static constexpr auto CMAKELISTS = "CMakeLists.txt"sv;
 	static constexpr auto README_MD	 = "README.md"sv;
-	static constexpr auto LICENSE	 = "LICENSE"sv;
+	static constexpr auto LICENSE		 = "LICENSE"sv;
+	static constexpr auto CONFIGURE_SH = "configure.sh"sv;
 
 	static constexpr auto PLUSTOML = "plus.toml"sv;
 }  // namespace FilePaths

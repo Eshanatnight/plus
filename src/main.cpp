@@ -20,6 +20,9 @@ auto main(int argc, char** argv) -> int {
 		case InitializationError::OK :
 			return EXIT_SUCCESS;
 
+		case InitializationError::COMMAND_FAILED :
+			return EXIT_FAILURE;
+
 		case InitializationError::BUILD_DIR_DOES_NOT_EXIST :
 		case InitializationError::CMAKELISTS_NOT_FOUND :
 		case InitializationError::PLUS_TOML_NOT_FOUND :

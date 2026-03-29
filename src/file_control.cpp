@@ -10,6 +10,7 @@
 #include "subprocess/ProcessBuilder.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdlib>
 #include <ctime>
@@ -18,7 +19,9 @@
 #include <future>
 #include <iostream>
 #include <numeric>
+#include <optional>
 #include <ostream>
+#include <set>
 #include <string>
 #include <string_view>
 #include <subprocess.hpp>
@@ -51,7 +54,9 @@ auto build_readme(const Config& conf) -> std::string {
 	out += "C++ project scaffolded with [plus](https://github.com/Eshanatnight/plus) "
 		   "(Cargo-style layout: `plus.toml`, `src/`, CMake).\n\n";
 	out += "## Build\n\n";
-	out += "```bash\nplus setup\nplus build\n```\n\n";
+	out += "```bash\nplus setup              # CMake only\nplus setup --conan      # conan install + CMake with toolchain\nplus deps               # conan install from plus.toml\nplus deps --sync-only   # only write conanfile.txt\nplus add fmt/10.2.1     # append Conan require to plus.toml\nplus build\nplus run\nplus test\nplus fmt\nplus clean\n```\n\n";
+	out += "## Conan dependencies\n\n";
+	out += "List packages under `[conan].requires` in `plus.toml` (e.g. `fmt/10.2.1`), run `plus deps` or `./configure.sh dbg`, then use `find_package` / `target_link_libraries` in `CMakeLists.txt` as usual with **CMakeDeps**.\n\n";
 	out += "## Layout\n\n";
 	out += "- `plus.toml` — project manifest\n";
 	out += "- `src/` — source files\n";
@@ -135,6 +140,191 @@ auto materialize_cmake_lib(const Config& conf, const std::string& cmake_project,
 	return cm;
 }
 
+auto run_cmake_configure(const std::filesystem::path& pwd,
+	const Config& conf,
+	const std::optional<std::filesystem::path>& toolchain_file = std::nullopt) -> bool {
+	namespace fs = std::filesystem;
+	const auto buildDir = pwd / conf.proj.buildDir;
+	fs::create_directories(buildDir);
+	std::string defs;
+
+	std::for_each(conf.proj.cmakeDefines.begin(),
+		conf.proj.cmakeDefines.end(),
+		[&defs](const auto& elem) {
+			defs += "-D";
+			defs += elem;
+			defs += ' ';
+		});
+
+	subprocess::CommandLine cmd{ "cmake", "-B", buildDir.string(), "-S", pwd.string() };
+	if(toolchain_file.has_value() && !toolchain_file->empty()) {
+		const auto absTc = fs::absolute(*toolchain_file);
+		cmd.emplace_back(std::string("-DCMAKE_TOOLCHAIN_FILE=") + absTc.string());
+	}
+	if(!defs.empty()) {
+		cmd.emplace_back(defs);
+	}
+
+	return static_cast<bool>(subprocess::run(cmd));
+}
+
+auto write_conanfile_txt(const std::filesystem::path& project_root, const Config& conf) -> bool {
+	std::ofstream f(project_root / "conanfile.txt");
+	if(!f.is_open()) {
+		std::cerr << "Error: could not write conanfile.txt\n";
+		return false;
+	}
+	f << "[requires]\n";
+	for(const auto& r: conf.conan.requires) {
+		f << r << '\n';
+	}
+	f << "\n[generators]\nCMakeDeps\nCMakeToolchain\n\n[layout]\ncmake_layout\n";
+	return true;
+}
+
+auto conan_toolchain_path(const std::filesystem::path& project_root,
+	const Config& conf,
+	Cli::BuildType t) -> std::filesystem::path {
+	const std::string cfg(buildTypeConfig(t));
+	return project_root / conf.conan.output_folder / "build" / cfg / "generators"
+		   / "conan_toolchain.cmake";
+}
+
+auto run_conan_install(const std::filesystem::path& project_root, const Config& conf, Cli::BuildType t)
+	-> bool {
+	write_conanfile_txt(project_root, conf);
+	subprocess::RunOptions opts;
+	opts.cwd = project_root.string();
+	const std::string bt(buildTypeConfig(t));
+	const auto cmd = subprocess::CommandLine{ "conan",
+		"install",
+		".",
+		"-s",
+		std::string("build_type=") + bt,
+		"--build=missing",
+		std::string("--output-folder=") + conf.conan.output_folder };
+	try {
+		return static_cast<bool>(subprocess::run(cmd, opts));
+	} catch(const std::exception& ex) {
+		std::cerr << "Error: conan install failed: " << ex.what() << '\n';
+		return false;
+	}
+}
+
+auto save_plus_toml(const std::filesystem::path& project_root, const Config& conf) -> bool {
+	std::ofstream f(project_root / FilePaths::PLUSTOML);
+	if(!f.is_open()) {
+		std::cerr << "Error: could not write plus.toml\n";
+		return false;
+	}
+	f << toml::toml_formatter(conf.toTomlTable());
+	return true;
+}
+
+auto trim_package_ref(std::string s) -> std::string {
+	while(!s.empty() && std::isspace(static_cast<unsigned char>(s.front())) != 0) {
+		s.erase(s.begin());
+	}
+	while(!s.empty() && std::isspace(static_cast<unsigned char>(s.back())) != 0) {
+		s.pop_back();
+	}
+	return s;
+}
+
+auto build_configure_sh(const Config& conf) -> std::string {
+	const std::string& dep = conf.conan.output_folder;
+	std::string s = "#!/usr/bin/env bash\nset -euo pipefail\n";
+	s += "if [[ \"${1:-}\" != \"dbg\" && \"${1:-}\" != \"rel\" ]]; then\n";
+	s += "  echo \"Usage: ./configure.sh <dbg|rel>\" >&2\n  exit 1\nfi\n";
+	s += "case \"$1\" in dbg) BT=Debug ;; rel) BT=Release ;; esac\n";
+	s += "mkdir -p build\n";
+	s += "echo \"Running Conan...\"\n";
+	s += "conan install . -s \"build_type=${BT}\" --build=missing --output-folder=" + dep + "\n";
+	s += "echo \"Configuring CMake...\"\n";
+	s += "TOOLCHAIN=\"./" + dep + "/build/${BT}/generators/conan_toolchain.cmake\"\n";
+	s += "cmake -B ./build -S . \"-DCMAKE_TOOLCHAIN_FILE=${TOOLCHAIN}\" \"-DCMAKE_BUILD_TYPE=${BT}\" "
+		 "\"$@\"\n";
+	return s;
+}
+
+auto run_cmake_build(const std::filesystem::path& pwd, const Config& conf, Cli::BuildType t) -> bool {
+	const auto buildDir = (pwd / conf.proj.buildDir).string();
+	const std::string cfg(buildTypeConfig(t));
+	const auto process =
+		subprocess::run(subprocess::CommandLine{ "cmake", "--build", buildDir, "--config", cfg });
+	return static_cast<bool>(process);
+}
+
+auto cmake_cache_path(const std::filesystem::path& pwd, const Config& conf) -> std::filesystem::path {
+	return pwd / conf.proj.buildDir / "CMakeCache.txt";
+}
+
+auto find_built_executable(const std::filesystem::path& pwd, const Config& conf)
+	-> std::optional<std::filesystem::path> {
+	namespace fs = std::filesystem;
+	const std::string slug	 = utils::project_slug(conf.proj.name);
+	const fs::path	  root	 = pwd / conf.proj.buildDir;
+	const std::string slugExe = slug + ".exe";
+
+	const fs::path candidates[] = {
+		root / slug,
+		root / slugExe,
+		root / "Debug" / slug,
+		root / "Debug" / slugExe,
+		root / "Release" / slug,
+		root / "Release" / slugExe,
+		root / "RelWithDebInfo" / slugExe,
+		root / "MinSizeRel" / slugExe,
+	};
+
+	for(const auto& p: candidates) {
+		if(fs::exists(p) && fs::is_regular_file(p)) {
+			return p;
+		}
+	}
+
+	if(fs::exists(root) && fs::is_directory(root)) {
+		for(const auto& entry: fs::directory_iterator(root)) {
+			if(!entry.is_directory()) {
+				continue;
+			}
+			for(const auto& name: { slug, slugExe }) {
+				const auto p = entry.path() / name;
+				if(fs::exists(p) && fs::is_regular_file(p)) {
+					return p;
+				}
+			}
+		}
+	}
+
+	return std::nullopt;
+}
+
+void collect_fmt_files(const std::filesystem::path& base, std::vector<std::filesystem::path>& out) {
+	namespace fs = std::filesystem;
+	static const std::set<std::string> exts{ ".cpp", ".cxx", ".cc", ".h", ".hpp", ".inl" };
+
+	if(!fs::exists(base)) {
+		return;
+	}
+
+	for(const auto& entry: fs::recursive_directory_iterator(
+			base, fs::directory_options::skip_permission_denied)) {
+		if(!entry.is_regular_file()) {
+			continue;
+		}
+		const auto p = entry.path();
+		std::string ext = p.extension().string();
+		std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) {
+			return static_cast<char>(std::tolower(c));
+		});
+		if(exts.count(ext) == 0u) {
+			continue;
+		}
+		out.push_back(p);
+	}
+}
+
 }  // namespace
 
 auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& appName)
@@ -148,7 +338,9 @@ auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& a
 			return InitializationError::INVALID_ARG;
 		}
 
-		_initializGitRepo(pwd, false);
+		if(!skipGit(cli)) {
+			_initializGitRepo(pwd, false);
+		}
 		appName = pwd.filename().string();
 		if(appName.empty() || appName == "." || appName == "..") {
 			appName = pwd.lexically_normal().filename().string();
@@ -170,7 +362,9 @@ auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& a
 		}
 
 		pwd = projectDir;
-		_initializGitRepo(pwd, true);
+		if(!skipGit(cli)) {
+			_initializGitRepo(pwd, true);
+		}
 		if(cli.new_.kind.has_value()) {
 			packageType = TypeToString(cli.new_.kind.value());
 		}
@@ -189,9 +383,251 @@ auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& a
 		}
 
 		auto conf = Config(pwd / FilePaths::PLUSTOML);
+		const auto t = cli.build.type.value_or(Cli::BuildType::dbg);
+		if(!run_cmake_build(pwd, conf, t)) {
+			std::cerr << "Error: build failed.\n";
+			return InitializationError::COMMAND_FAILED;
+		}
+		return InitializationError::OK;
 
-		auto process = subprocess::run({ "cmake", "--build", conf.proj.buildDir });
-		(void)process;
+	} else if(cli.run.has_value()) {
+
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		if(conf.proj.kind == "lib") {
+			std::cerr << "Error: `plus run` only applies to binary (`bin`) packages.\n";
+			return InitializationError::INVALID_ARG;
+		}
+
+		if(!std::filesystem::exists(pwd / FilePaths::CMAKELISTS)) {
+			std::cerr << "Error: `CMakeLists.txt` not found.\n";
+			return InitializationError::CMAKELISTS_NOT_FOUND;
+		}
+
+		const auto t = cli.run.type.value_or(Cli::BuildType::dbg);
+
+		if(!std::filesystem::exists(cmake_cache_path(pwd, conf))) {
+			if(!run_cmake_configure(pwd, conf)) {
+				std::cerr << "Error: CMake configure failed.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
+		}
+
+		if(!run_cmake_build(pwd, conf, t)) {
+			std::cerr << "Error: build failed.\n";
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		const auto exe = find_built_executable(pwd, conf);
+		if(!exe.has_value()) {
+			std::cerr << "Error: could not find the built executable under `"
+					  << conf.proj.buildDir << "`.\n";
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		subprocess::RunOptions runOpts;
+		runOpts.cwd = pwd.string();
+		const auto runProc = subprocess::run(subprocess::CommandLine{ exe->string() }, runOpts);
+		if(!static_cast<bool>(runProc)) {
+			return InitializationError::COMMAND_FAILED;
+		}
+		return InitializationError::OK;
+
+	} else if(cli.clean.has_value()) {
+
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		const auto buildDir = pwd / conf.proj.buildDir;
+		if(!std::filesystem::exists(buildDir)) {
+			if(!cli.clean.quiet.value_or(false)) {
+				std::cout << "Nothing to clean (build directory missing).\n";
+			}
+			return InitializationError::OK;
+		}
+
+		const auto n = std::filesystem::remove_all(buildDir);
+		if(!cli.clean.quiet.value_or(false)) {
+			std::cout << "Removed `" << buildDir.string() << "` (" << n << " entries).\n";
+		}
+		return InitializationError::OK;
+
+	} else if(cli.fmt.has_value()) {
+
+		std::vector<std::filesystem::path> files;
+		collect_fmt_files(pwd / FilePaths::SRC_PATH, files);
+		collect_fmt_files(pwd / FilePaths::INC_PATH, files);
+		collect_fmt_files(pwd / "tests", files);
+		collect_fmt_files(pwd / "test", files);
+
+		if(files.empty()) {
+			std::cerr << "Error: no .cpp/.h files found under src/, include/, tests/, or test/.\n";
+			return InitializationError::INVALID_ARG;
+		}
+
+		subprocess::CommandLine cmd;
+		cmd.emplace_back("clang-format");
+		if(cli.fmt.check.value_or(false)) {
+			cmd.emplace_back("--dry-run");
+			cmd.emplace_back("--Werror");
+		} else {
+			cmd.emplace_back("-i");
+		}
+		for(const auto& f: files) {
+			cmd.emplace_back(f.string());
+		}
+
+		try {
+			if(!static_cast<bool>(subprocess::run(cmd))) {
+				std::cerr << "Error: clang-format reported issues.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			std::cerr << "Error: failed to run clang-format: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		if(!cli.fmt.check.value_or(false)) {
+			std::cout << "Formatted " << files.size() << " file(s).\n";
+		}
+		return InitializationError::OK;
+
+	} else if(cli.show.has_value()) {
+
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		std::cout << "package: " << conf.proj.name << "\n";
+		std::cout << "version: " << conf.proj.version << "\n";
+		std::cout << "kind: " << conf.proj.kind << "\n";
+		std::cout << "cpp_std: " << conf.proj.cpp_std << "\n";
+		std::cout << "build_dir: " << conf.proj.buildDir << "\n";
+		std::cout << "conan_output_folder: " << conf.conan.output_folder << "\n";
+		std::cout << "conan_requires: " << conf.conan.requires.size() << " entr"
+				  << (conf.conan.requires.size() == 1 ? "y" : "ies") << "\n";
+		if(cli.show.verbose.value_or(false)) {
+			for(const auto& r: conf.conan.requires) {
+				std::cout << "  - " << r << '\n';
+			}
+			if(!conf.author.name.empty() || !conf.author.email.empty()) {
+				std::cout << "author: " << conf.author.name << " <" << conf.author.email << ">\n";
+			}
+			if(!conf.proj.repo.empty()) {
+				std::cout << "repo: " << conf.proj.repo << "\n";
+			}
+		}
+		return InitializationError::OK;
+
+	} else if(cli.test.has_value()) {
+
+		if(!std::filesystem::exists(pwd / FilePaths::PLUSTOML)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(pwd / FilePaths::PLUSTOML);
+		const auto buildDir = pwd / conf.proj.buildDir;
+
+		if(!std::filesystem::exists(cmake_cache_path(pwd, conf))) {
+			if(!std::filesystem::exists(pwd / FilePaths::CMAKELISTS)) {
+				std::cerr << "Error: `CMakeLists.txt` not found.\n";
+				return InitializationError::CMAKELISTS_NOT_FOUND;
+			}
+			if(!run_cmake_configure(pwd, conf)) {
+				std::cerr << "Error: CMake configure failed.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
+		}
+
+		if(!std::filesystem::exists(buildDir)) {
+			std::cerr << "Error: build directory does not exist. Run `plus build` first.\n";
+			return InitializationError::BUILD_DIR_DOES_NOT_EXIST;
+		}
+
+		const auto t = cli.test.type.value_or(Cli::BuildType::dbg);
+		const std::string cfg(buildTypeConfig(t));
+
+		try {
+			const auto proc = subprocess::run(subprocess::CommandLine{ "ctest",
+				"--test-dir",
+				buildDir.string(),
+				"--output-on-failure",
+				"-C",
+				cfg });
+			if(!static_cast<bool>(proc)) {
+				return InitializationError::COMMAND_FAILED;
+			}
+		} catch(const std::exception& ex) {
+			std::cerr << "Error: failed to run ctest: " << ex.what() << '\n';
+			return InitializationError::COMMAND_FAILED;
+		}
+
+		return InitializationError::OK;
+
+	} else if(cli.deps.has_value()) {
+
+		const auto plusTomlPath = pwd / FilePaths::PLUSTOML;
+		if(!std::filesystem::exists(plusTomlPath)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		Config conf(plusTomlPath);
+
+		if(cli.deps.sync_only.value_or(false)) {
+			if(!write_conanfile_txt(pwd, conf)) {
+				return InitializationError::COMMAND_FAILED;
+			}
+			std::cout << "Wrote `conanfile.txt` from `plus.toml`.\n";
+			return InitializationError::OK;
+		}
+
+		const auto t = cli.deps.type.value_or(Cli::BuildType::dbg);
+		if(!run_conan_install(pwd, conf, t)) {
+			std::cerr << "Error: `conan install` failed.\n";
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Conan install finished (`--output-folder=" << conf.conan.output_folder << "`).\n";
+		return InitializationError::OK;
+
+	} else if(cli.add.has_value()) {
+
+		const auto plusTomlPath = pwd / FilePaths::PLUSTOML;
+		if(!std::filesystem::exists(plusTomlPath)) {
+			std::cerr << "Error: `plus.toml` does not exist.\n";
+			return InitializationError::PLUS_TOML_NOT_FOUND;
+		}
+
+		std::string ref = trim_package_ref(cli.add.package_ref);
+		if(ref.empty()) {
+			std::cerr << "Error: package reference must not be empty (e.g. `fmt/10.2.1`).\n";
+			return InitializationError::INVALID_ARG;
+		}
+
+		Config conf(plusTomlPath);
+		for(const auto& existing: conf.conan.requires) {
+			if(existing == ref) {
+				std::cout << "Requirement `" << ref << "` is already listed in plus.toml.\n";
+				write_conanfile_txt(pwd, conf);
+				return InitializationError::OK;
+			}
+		}
+
+		conf.conan.requires.push_back(std::move(ref));
+		if(!save_plus_toml(pwd, conf) || !write_conanfile_txt(pwd, conf)) {
+			return InitializationError::COMMAND_FAILED;
+		}
+		std::cout << "Added Conan requirement and updated `conanfile.txt`. Run `plus deps` to install.\n";
 		return InitializationError::OK;
 
 	} else if(cli.setup.has_value()) {
@@ -222,40 +658,31 @@ auto initializeAndRun(const Cli& cli, std::filesystem::path& pwd, std::string& a
 
 		Config conf(plusTomlPath);
 		const auto buildDir = pwd / conf.proj.buildDir;
-		exists				= std::filesystem::exists(buildDir);
+		std::filesystem::create_directories(buildDir);
 
-		if(!exists) {
+		const auto t = cli.setup.type.value_or(Cli::BuildType::dbg);
 
-			std::cerr << "Error: build directory does not exists.\n";
-
-			return InitializationError::BUILD_DIR_DOES_NOT_EXIST;
-		}
-
-		std::string defs;
-
-		std::for_each(conf.proj.cmakeDefines.begin(),
-			conf.proj.cmakeDefines.end(),
-			[&defs](const auto& elem) {
-				defs += "-D";
-				defs += elem;
-				defs += ' ';
-			});
-
-		LOG_DEBUG_MSG(defs);
-
-		// TODO: make the cmake src dir configurable
-		subprocess::CompletedProcess process;
-		if(!defs.empty()) {
-
-			process = subprocess::run(
-				{ "cmake", "-B", buildDir.c_str(), "-S", pwd.c_str(), defs.c_str() });
+		if(cli.setup.conan.value_or(false)) {
+			if(!run_conan_install(pwd, conf, t)) {
+				std::cerr << "Error: `conan install` failed.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
+			const auto tc = conan_toolchain_path(pwd, conf, t);
+			if(!std::filesystem::exists(tc)) {
+				std::cerr << "Error: Conan toolchain not found at `" << tc.string()
+						  << "`.\nCheck `[conan].output_folder` in plus.toml matches your Conan layout.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
+			if(!run_cmake_configure(pwd, conf, tc)) {
+				std::cerr << "Error: CMake configure failed.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
 		} else {
-
-			process = subprocess::run({ "cmake", "-B", buildDir.c_str(), "-S", pwd.c_str() });
+			if(!run_cmake_configure(pwd, conf)) {
+				std::cerr << "Error: CMake configure failed.\n";
+				return InitializationError::COMMAND_FAILED;
+			}
 		}
-
-		(void)process;
-		//
 		return InitializationError::OK;
 
 	} else {
@@ -306,6 +733,8 @@ auto InstPathToFilePath(InstPath file, const std::filesystem::path& basePath)
 		return basePath / FilePaths::README_MD;
 	case InstPath::LICENSE :
 		return basePath / FilePaths::LICENSE;
+	case InstPath::CONFIGURE_SH :
+		return basePath / FilePaths::CONFIGURE_SH;
 	}
 }
 
@@ -395,5 +824,13 @@ auto makeFiles(std::vector<std::future<void>>& futs,
 		std::string result =
 			isLib ? materialize_cmake_lib(conf, cmake_project, slug) : materialize_cmake_bin(conf, cmake_project);
 		_writeContent(basePath, InstPath::CMAKELISTS, result);
+	}));
+
+	futs.push_back(std::async(std::launch::async, [basePath, conf]() {
+		if(!write_conanfile_txt(basePath, conf)) {
+			return;
+		}
+		const auto sh = build_configure_sh(conf);
+		_writeContent(basePath, InstPath::CONFIGURE_SH, sh);
 	}));
 }

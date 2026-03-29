@@ -56,13 +56,32 @@ More Information [here](https://stackoverflow.com/questions/64889383/how-to-enab
 
 ----
 
+## Testing
+
+Unit tests use [Catch2](https://github.com/catchorg/Catch2) (fetched by CMake when `BUILD_TESTING` is on, which is the default). After configuring and building:
+
+```bash
+cd build
+ctest -L plus --output-on-failure
+```
+
+Running plain `ctest` may also execute tests from dependencies (for example the `subprocess` library); the `plus` label restricts runs to this project’s cases. To skip tests and the Catch2 download, configure with `-DBUILD_TESTING=OFF`.
+
+----
+
 ## Useage and Keyword Lookup
 
 |Keyword|Command|
 |---|---|
 |`plus init`|Initialize a project repository in the current path|
 |`plus new "Project_Name"`|Create a new Project in a new directory in the curent path|
+|`plus add fmt/10.2.1`|Append a Conan requirement to `plus.toml` and refresh `conanfile.txt`|
+|`plus deps`|Run `conan install` from `plus.toml` (writes `conanfile.txt` first)|
+|`plus deps --sync-only`|Only regenerate `conanfile.txt` (no network)|
+|`plus setup --conan`|Conan install + CMake configure using the Conan toolchain|
 |`plus help`|Show this help message|
+
+New projects include `[conan]` in `plus.toml` (empty `requires` by default), `conanfile.txt`, and `configure.sh` (same flow as this repo: Conan 2 + CMakeDeps + `cmake_layout`). Set `[conan].output_folder` if you want something other than `deps`.
 
 ## Features
 

@@ -43,6 +43,26 @@ Config::Author::Author(const toml::table& tbl) {
 	email = tbl["author"]["email"].value_or("");
 }
 
+Config::Conan::Conan(const toml::table& tbl) {
+	const auto& node = tbl["conan"];
+	if(!static_cast<bool>(node)) {
+		return;
+	}
+	output_folder = node["output_folder"].value_or("deps");
+
+	const auto& reqArr = node["requires"];
+	if(reqArr.is_array()) {
+		reqArr.as_array()->for_each([this](auto&& elem) {
+			if constexpr(toml::is_string<decltype(elem)>) {
+				const std::string s = elem.value_or(std::string{});
+				if(!s.empty()) {
+					requires.emplace_back(s);
+				}
+			}
+		});
+	}
+}
+
 Config::Config(const std::filesystem::path& configPath) {
 
 	/**
@@ -72,6 +92,7 @@ Config::Config(const std::filesystem::path& configPath) {
 
 	proj   = Project(tbl);
 	author = Author(tbl);
+	conan  = Conan(tbl);
 }
 
 Config::Config(
@@ -84,6 +105,11 @@ auto Config::toTomlTable() const -> toml::table {
 		proj.cmakeDefines.end(),
 		[&cmakeDefs](const auto& elem) { cmakeDefs.push_back(elem); });
 
+	auto conanReq = toml::array{};
+	std::for_each(conan.requires.begin(), conan.requires.end(), [&conanReq](const auto& r) {
+		conanReq.push_back(r);
+	});
+
 	auto tbl = toml::table{
 		{ "project",
 			toml::table{ { "name", proj.name },
@@ -93,7 +119,9 @@ auto Config::toTomlTable() const -> toml::table {
 			{ "buildDir", proj.buildDir },
 			{ "repo", proj.repo },
 			{ "cmakeDefines", cmakeDefs } }												},
-		{  "author", toml::table{ { "name", author.name }, { "email", author.email } } }
+		{  "author", toml::table{ { "name", author.name }, { "email", author.email } } },
+		{ "conan",
+			toml::table{ { "requires", conanReq }, { "output_folder", conan.output_folder } } },
 	};
 
 	return tbl;

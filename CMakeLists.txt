@@ -26,6 +26,16 @@ FetchContent_Declare(
 FetchContent_GetProperties(subprocess)
 FetchContent_MakeAvailable(subprocess)
 
+include(CTest)
+
+if(BUILD_TESTING)
+  FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG        v3.5.4
+  )
+  FetchContent_MakeAvailable(Catch2)
+endif()
 
 if(MSVC)
   # Force to always compile with W4
@@ -57,4 +67,22 @@ target_link_libraries(${PROJECT_NAME} libgit2::libgit2 tomlplusplus::tomlplusplu
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   # add_definitions("-DDEBUG")
   target_compile_definitions(${PROJECT_NAME} PRIVATE DEBUG=1)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(plus_tests
+    tests/test_utils.cpp
+    tests/test_config.cpp
+    src/utils.cpp
+    src/config.cpp
+  )
+  set_property(TARGET plus_tests PROPERTY CXX_STANDARD 17)
+  target_include_directories(plus_tests PRIVATE ${CMAKE_SOURCE_DIR}/src/include)
+  target_link_libraries(plus_tests PRIVATE Catch2::Catch2WithMain tomlplusplus::tomlplusplus)
+  list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+  include(Catch)
+  catch_discover_tests(plus_tests
+    DISCOVERY_MODE PRE_TEST
+    PROPERTIES LABELS plus
+  )
 endif()
