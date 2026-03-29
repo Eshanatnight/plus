@@ -7,6 +7,8 @@
 struct Config {
 	struct Project {
 		std::string name;
+		std::string version;
+		std::string cpp_std;
 		std::string kind;
 		std::string buildDir;
 		std::string repo;
@@ -16,7 +18,11 @@ struct Config {
 		explicit Project(const toml::table& tbl);
 		// NOLINTNEXTLINE
 		Project(std::string name, std::string_view kind, std::string_view buildDir) :
-			name(std::move(name)), kind(kind), buildDir(buildDir) {}
+			name(std::move(name)),
+			version("0.1.0"),
+			cpp_std("17"),
+			kind(kind),
+			buildDir(buildDir) {}
 	};
 
 	struct Author {

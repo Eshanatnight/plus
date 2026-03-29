@@ -14,6 +14,8 @@
 Config::Project::Project(const toml::table& tbl) {
 	kind	 = tbl["project"]["kind"].value_or("");
 	name	 = tbl["project"]["name"].value_or("");
+	version	 = tbl["project"]["version"].value_or("0.1.0");
+	cpp_std	 = tbl["project"]["cpp_std"].value_or("17");
 	buildDir = tbl["project"]["buildDir"].value_or("");
 	repo	 = tbl["project"]["repo"].value_or("");
 
@@ -25,17 +27,12 @@ Config::Project::Project(const toml::table& tbl) {
 			if constexpr(toml::is_string<decltype(elem)>) {
 				cmakeDefines.emplace_back(elem.value_or(""));
 			} else {
-				// Deal with the error case of not having the key
 				LOG_DEBUG_MSG("type of `elem`: ");
 				LOG_DEBUG_MSG(elem.type());
 			}
 		});
-	} else {
-		LOG_DEBUG_MSG("cmakeDefines TABLE IS UNDEFINED OR IS NOT AN ARRAY.");
-		LOG_DEBUG_MSG(tableCmakeDefines.type());
-
-		std::cerr << "[Error]: Failed to parse Project or Author data\n";
-		std::quick_exit(1);
+	} else if(static_cast<bool>(tableCmakeDefines)) {
+		LOG_DEBUG_MSG("cmakeDefines is present but not an array; ignoring.");
 	}
 }
 
@@ -90,6 +87,8 @@ auto Config::toTomlTable() const -> toml::table {
 	auto tbl = toml::table{
 		{ "project",
 			toml::table{ { "name", proj.name },
+			{ "version", proj.version },
+			{ "cpp_std", proj.cpp_std },
 			{ "kind", proj.kind },
 			{ "buildDir", proj.buildDir },
 			{ "repo", proj.repo },

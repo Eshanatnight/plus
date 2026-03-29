@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cli.h"
+#include "config.h"
 
 #include <filesystem>
 #include <future>
@@ -9,7 +10,10 @@
 enum class InstPath {
 	MAINCPP,
 	GITIGNORE,
-	CMAKELISTS
+	CMAKELISTS,
+	GITATTRIBUTES,
+	README,
+	LICENSE,
 };
 
 enum class InitializationError {
@@ -38,5 +42,5 @@ auto _writeContent(
 auto makeBuildDir(const std::filesystem::path& basePath) -> std::future<void>;
 auto makeFiles(std::vector<std::future<void>>& futs,
 	const std::filesystem::path& basePath,
-	std::string_view appName,
+	const Config& conf,
 	bool isLib) -> void;
